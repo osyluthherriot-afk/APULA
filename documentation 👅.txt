@@ -1,0 +1,56 @@
+APULA (Atmospheric Prediction & Unified Low-gravity Analysis)
+NASA Space Apps Project
+
+Overview
+
+APULA is a Next.js App Router, TypeScript, and Tailwind CSS dashboard built to evaluate spacecraft flammability, microgravity and partial-gravity combustion physics, and empirical NASA Physical Sciences Informatics (PSI) flight test evidence in one interface (Dashboardu
+
+
+1. src/lib/combustionPhysicsEngine.ts
+cool ass physics model and CSV data normalizer. Separating the physics math and CSV ingestion from the React UI
+
+CSV Normalization and Parsing Pipeline:
+parseAndNormalizePsiCsv eats two kinds of CSV and doesn’t complain about either. the first kind is the raw NASA PSI/BASS-II format which has headers like “Fuel Sample Material” and “Calibrated initial O2 % by vol” which is insane
+for raw NASA rows, experimentId defaults to BASS-II and missing pressure defaults to 14.7 psi (ISS MSG ambient) for the normalized format, blank cells are tolerated and normalizePressurePsi auto-converts anything above 25 from kPa to psi. if you see a number above 25 it goes: multiply by 0.145038.
+extractMaterialGeometry does regex on descriptions like “3mm acrylic rod” and somehow figures out what shape it is and how thick 👅 it is.
+loadMasterPsiDataset pulls in all 654 flight test rows from datum/masterPsiData.ts across all 8 NASA campaigns (FLEX, FLEX-2, BASS-II, BASS, SAFFIRE-3, SAME-R, SAME, DAFT) on boot without needing any file upload.
+
+Combustion Physics Math (simulateCombustionPhysics):
+buoyancy in microgravity: buoyantVelocityCmS = 22 * sqrt(gravityG). at 0g that’s 0. yeah. there’s no convection in space. this is why the ISS has fans.
+ion wind from ACME E-FIELD: ionWindVelocityCmS = 0.008 * electricFieldVoltsCm. we are literally moving flames with electric fields that is so cool gomenasorry 
+
+effective velocity combines all of this in quadrature. sqrt(airflow² + naturalDraft²). pythagorean theorem.
+
+pressure scaling: (pressurePsi / 14.7)^-0.25. lower pressure = more diffusivity = lower LOI = easier to ignite. if you’re on a Lunar base at 10 psi and someone drops a chip: good luck. thickness adjustment: 0.22 * log2(thicknessMm / 0.35). CO2 inerting: 0.32 * co2DilutionPct. CO2 is very good at putting out fires, turns out.
+
+flame regimes: COOL_FLAME_CFI_G, CRITICAL_ACCELERATED_BURN, SPHERICAL_DIFFUSION_FLAME, ELONGATED_MICROGRAVITY_FLAME, NO_IGNITION_QUENCHED, NO_IGNITION_BLOWOFF.
+
+
+Visualization and Matching Helpers:
+generateFlameRenderGeometry turns numbers into SVG coordinates. it outputs flickerFrequencyHz which we use to animate the flame. the flame flickers at a physically estimated frequency. this is maybe the most unhinged thing in the codebase. it’s also my favorite
+generateAdvancedFlameField and generateFlammabilityPhaseMatrix compute the wind-tunnel Schlieren zones, thermocouple probe temperatures, radiometer flux, and the 23x19 / 26x19 flammability phase grids + EVA pre-breathe decompression vector.
+
+
+2. src/data/psiCatalog.ts & datum/masterPsiData.ts
+
+this file contains all 13 NASA fire investigations, 654 pre-bundled flight test rows (bridged from datum/masterPsiData.ts), and the ranker.
+
+Its based on the KiraTM Masterfile which ive cleaned up into a ts file
+
+3. src/app/page.tsx (plus src/components/ThreeFlameChamber.tsx & src/components/FlammabilityPhaseCharts.tsx)
+
+This single-page client component connects user controls directly to the physics engine and PSI catalog using React
+Physics Readout and Flame Wireframe (Section 2):
+
+300x200 SVG + 60fps 3D Three.js chamber (ThreeFlameChamber.tsx). the flame is drawn from flameLengthMm and flameWidthMm, morphing in 3D from a ghostly blue 0g diffusion sphere into a tilted buoyant teardrop with 180 GPU wind-tunnel and soot particles. it has a soot tail. it flickers. it’s blue when it’s a cool flame. it’s orange when it’s normal. the inside-out burner renders differently with the geometry inverted.
+
+Section 3 (FlammabilityPhaseCharts.tsx):
+zooms into the 12%–38% O2 boundary zone by default so the 0g, Lunar 0.16g, Mars 0.38g, and Earth 1g curves don't get squished at the bottom, with smooth thermal gradients and clustered empirical pins.
+
+###Sections 4, 5, and 6 (the nerd section):
+
+section 4: 13 investigations, filterable by safety pillar (Prevention / Detection / Suppression) and provenance tier, each with a live CSV row count badge and a relevance score out of 100 and an explanation.
+
+section 5: pick any 2 investigations, get a comparison matrix of their fixed vs. swept variables with cross-links.
+
+section 6: top 5 closest empirical flight runs to your current params, ranked by L1 distance, pulled from real NASA test data
