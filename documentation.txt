@@ -1,0 +1,50 @@
+APULA (Atmospheric Prediction & Unified Low-gravity Analysis)
+NASA Space Apps Project (Project SIKLAB / ALAB)
+
+Overview
+
+APULA is a Next.js App Router, TypeScript, and Tailwind CSS engineering dashboard for evaluating spacecraft flammability, microgravity and partial-gravity combustion physics, and empirical NASA Physical Sciences Informatics (PSI) flight test telemetry in a unified interface. The repository boots pre-populated with all 8 empirical NASA PSI campaigns (654 normalized test rows) from datum/masterPsiData.ts so users can inspect physics regimes, flame morphology, flammability phase boundaries, and closest flight tests immediately without uploading files.
+
+1. datum/masterPsiData.ts
+
+Stores MASTER_PSI_CSV as a pre-bundled multi-investigation CSV export covering 654 flight test runs across 8 NASA PSI campaigns: FLEX (274), BASS-II (129), BASS (122), SAME-R (109), FLEX-2 (8), SAME (8), SAFFIRE-3 (2), and DAFT (2). Separating the dataset into datum/masterPsiData.ts keeps telemetry data decoupled from both the TypeScript physics engine and the React UI while enabling instant zero-upload boot.
+
+2. src/lib/combustionPhysicsEngine.ts
+
+Separates empirical CSV ingestion, combustion physics modeling, SVG/Canvas visualization generators, and telemetry matching from the UI layer.
+
+Data Ingestion and Normalization Pipeline:
+- loadMasterPsiDataset(rawMasterData): Accepts either the raw CSV string from datum/masterPsiData.ts or an array/container of row objects and normalizes every entry into NormalizedRun[]. Preserves exact experimentId labels across FLEX, FLEX-2, BASS-II, BASS, SAFFIRE-3, SAME-R, SAME, and DAFT without misclassifying FLEX-2xx test numbers as FLEX-2.
+- parseAndNormalizePsiCsv: Handles both raw NASA BASS-II tables (defaulting experimentId to "BASS-II" and missing pressure to 14.7 psi ISS MSG ambient) and the multi-investigation normalized schema while tolerating missing optional cells and extra study columns. Automatically converts pressures above 25 from kPa to psi (* 0.145038), pressures between 0 and 3.5 atm to psi (* 14.6959), fractional O2 values (0 to 1) to percentages, and strings like "Microgravity (ISS)" to 0g.
+- extractMaterialGeometry: Parses unstructured fuel descriptions (including acrylic BASS-II rod, micron film, and spherical section samples) into structured baseMaterial, geometryType, thicknessMm, and widthCm fields.
+- extractAirflowTrajectory: Extracts non-negative stepped MSG fan velocity sequences (initial, final, minimum, and array steps in cm/s) and classifies extinction mechanisms such as diffusive quenching, convective blowoff, oxygen depletion, or sooting.
+
+Combustion Physics Math (simulateCombustionPhysics):
+- Froude-based effective flow: Computes natural buoyant velocity as 22 * sqrt(gravityG) cm/s and ACME E-FIELD ion wind velocity as 0.008 * electricFieldVoltsCm cm/s, combining natural draft in quadrature with forced cabin ventilation: sqrt(airflowCmS^2 + (buoyant + ionWind)^2). Equivalent gravity is backed out from total natural draft as ((buoyant + ionWind) / 22)^2.
+- U-shaped Limiting Oxygen Index (LOI): Adds a low-flow diffusive quenching penalty below 2 cm/s (accumulation of combustion products and radiative heat loss) and a high-flow convective blowoff penalty above 12 cm/s. Applies pressure scaling (pressurePsi / 14.7)^(-0.25) so reduced exploration atmospheres increase diffusivity and lower LOI, alongside thickness correction 0.22 * log2(thicknessMm / 0.35) and CO2 inerting (0.32 * co2DilutionPct).
+- Regime classification: Classifies operating conditions into COOL_FLAME_CFI_G, CRITICAL_ACCELERATED_BURN, SPHERICAL_DIFFUSION_FLAME, ELONGATED_MICROGRAVITY_FLAME, NO_IGNITION_QUENCHED, or NO_IGNITION_BLOWOFF, and estimates flame spread rate, adiabatic flame temperature, CO/CO2 yields, and smoke/soot index.
+
+Visualization and Telemetry Matching:
+- generateFlameRenderGeometry: Maps simulation results to core flame length, width, aspect ratio, inside-out burner state, soot tail opacity, and buoyant flicker frequency in Hz.
+- generateAdvancedFlameField: Computes a deterministic 640x380 Microgravity Wind-Tunnel & Schlieren Diagnostics coordinate field anchored at (170, 190). Outputs 4 nested cubic Bezier zones (schlierenHaloPath, reactionSheetPath, sootMantlePath, pyrolysisCorePath) with gradient stops, plume tilt angle and lift standoff, 6 wake vortex nodes, 11 obstacle-deflected streamlines, a radiative FOV radiometer cone, a 5-point thermocouple rake, and a SAME/DAFT aerosol laser obscuration sensor overlay.
+- generateFlammabilityEnvelopeData and generateFlammabilityPhaseMatrix: Builds both the 0g/0.16g/0.38g/1g LOI envelope curves and high-resolution phase matrices: a 23x19 pressure-by-O2 risk heatmap (4.0 to 15.0 psi vs 10 to 100% O2), a 26x19 airflow-by-O2 U-curve risk heatmap (0 to 50 cm/s vs 10 to 100% O2) tagged by quenching/super-flammable/blowoff zones, three iso-spread contours (1, 5, and 15 mm/s), the partial-gravity bounding polygon between 0g and 1g baselines, a 12-waypoint EVA pre-breathe decompression risk tradeoff vector (from ISS 14.7 psi / 21% O2 through Lunar 10.2 psi / 34% O2 to EVA suit 4.3 psi / 100% O2), and projected empirical telemetry pins across all loaded flight tests.
+- findClosestEmpiricalRuns: Computes normalized L1 distance across oxygen percentage, effective airflow, pressure, gravity, and fuel family to return the closest historical NASA flight tests.
+
+3. src/data/psiCatalog.ts
+
+Imports MASTER_PSI_CSV directly from datum/masterPsiData.ts and initializes LOADED_MASTER_PSI_RUNS via loadMasterPsiDataset. Defines all 13 NASA PSI investigations across the 3 Fire Safety Pillars (Prevention, Detection, Suppression) and 3 Data Provenance Tiers:
+- EMPIRICAL_CSV_LOADED: Investigations backed directly by empirical flight rows loaded from datum/masterPsiData.ts (BASS-II, BASS, SAFFIRE-3, FLEX, FLEX-2, SAME, SAME-R, DAFT).
+- PHYSICS_AND_METADATA_MODEL: Gaseous CIR studies modeled by the analytical engine (ACME-BRE, ACME-CFI-G, ACME-E-FIELD).
+- FUTURE_LUNAR_FLIGHT: Upcoming Lunar surface studies without PSI telemetry yet (LUCI, FM2), bounded between empirical 0g and 1g flammability curves.
+Also provides getRunCampaignId and rankPsiInvestigations to score study relevance for the active habitat state and display live loaded row counts per campaign.
+
+4. src/app/page.tsx
+
+Client dashboard organized into 7 synchronized sections driven by habitat presets (ISS, Lunar Base, Mars Habitat, EVA Suit, Earth), continuous parameter sliders, and instant masterfile boot with optional CSV append/replace import:
+- Section 0: Executive Mission Banner explaining the 3 Fire Safety Pillars, analytical vs. empirical provenance tiers, and pre-loaded telemetry status.
+- Section 1: Habitat & Experimental Control Panel plus masterfile/CSV ingestion controls.
+- Section 2: Real-time CombustionSimulationResult metrics, analytical diagnostics, and Section 2C (src/components/ThreeFlameChamber.tsx), an interactive 60 FPS 3D Three.js Microgravity Wind-Tunnel & Flame Morphology Chamber featuring 3 concentric additive-blended morphing sphere-to-teardrop flame meshes, 180 GPU wind-tunnel streamline and soot wake particles, orbit/zoom camera controls, and a toggleable sensor probe HUD.
+- Section 3: Phase-Space Flammability Matrices (src/components/FlammabilityPhaseCharts.tsx) with a Y-axis scale toggle (defaulting to the 12% to 38% O2 boundary zoom mode with an upper scale break callout track for the 100% O2 EVA Suit pin, plus full 0% to 100% O2 scale), smooth continuous thermal boundary gradients, leader-line habitat callouts with zero label collisions, binned empirical telemetry cluster pins, and aerodynamic regime shading across the Ventilation U-Curve.
+- Section 4: Dynamic PSI Investigation Ranker filterable by pillar and provenance tier with live campaign row counts.
+- Section 5: Cross-Investigation Variable Comparator contrasting fixed and swept parameters across any two selected NASA studies.
+- Section 6: Closest Empirical NASA PSI Flight Test Matcher displaying the top 5 matching runs filtered across all campaigns or individual missions.

@@ -1,0 +1,2248 @@
+export type BaseMaterial =
+  | "PMMA"
+  | "SIBAL (Cotton-Fiberglass)"
+  | "Nomex"
+  | "Paraffin Wax"
+  | "Kapton"
+  | "Heptane"
+  | "Propane/Methane"
+  | "Unknown";
+
+export type GeometryType =
+  | "Film/Sheet"
+  | "Slab"
+  | "Cylinder/Rod"
+  | "Sphere"
+  | "Fabric"
+  | "Candle"
+  | "Droplet"
+  | "Gas Burner";
+
+export type ExtinctionMechanism =
+  | "Diffusive Quenching (Low Flow Limit)"
+  | "Convective Blowoff (High Flow Limit)"
+  | "Oxygen Depletion / Product Accumulation"
+  | "Incomplete Combustion / Sooting"
+  | "No Extinction Observed";
+
+export type CombustionRegime =
+  | "NO_IGNITION_QUENCHED"
+  | "NO_IGNITION_BLOWOFF"
+  | "SPHERICAL_DIFFUSION_FLAME"
+  | "COOL_FLAME_CFI_G"
+  | "ELONGATED_MICROGRAVITY_FLAME"
+  | "CRITICAL_ACCELERATED_BURN";
+
+export type SimulatorMaterial =
+  | "PMMA_FILM_0.1MM"
+  | "PMMA_SLAB_3MM"
+  | "SIBAL_FABRIC"
+  | "NOMEX"
+  | "HEPTANE_DROPLET"
+  | "PROPANE_CFI_G";
+
+export interface MaterialGeometry {
+  baseMaterial: BaseMaterial;
+  geometryType: GeometryType;
+  thicknessMm: number | null;
+  widthCm: number | null;
+}
+
+export interface AirflowTrajectory {
+  initialAirflowCmS: number | null;
+  finalAirflowCmS: number | null;
+  airflowSteps: number[];
+  extinctionMechanism: ExtinctionMechanism;
+}
+
+export interface NormalizedRun extends MaterialGeometry, AirflowTrajectory {
+  sourceFormat: "NASA_PSI_RAW" | "HUMAN_NORMALIZED";
+  experimentId: string;
+  pi: string;
+  testNumber: string;
+  date: string;
+  gmt: string;
+  sampleNumber: string;
+  rawFuelMaterial: string;
+  flowRestrictor: string;
+  fanDisplay: string;
+  airDisplay: string;
+  radiometerGain: string;
+  totalFramesShot: number | null;
+
+  initialO2Pct: number | null;
+  finalO2Pct: number | null;
+  initialCO2Pct: number | null;
+  finalCO2Pct: number | null;
+  initialCOPpm: number | null;
+  finalCOPpm: number | null;
+
+  pressurePsi: number | null;
+  temperatureK: number | null;
+  gravityG: number | null;
+  ignitionStatus: string;
+  burnDurationS: number | null;
+  flameTemperatureK: number | null;
+  flameSpreadMmS: number | null;
+  extinctionStatus: string;
+  smokeParticleConc: number | null;
+}
+
+export interface SimulationParams {
+  o2Pct: number;
+  pressurePsi: number;
+  airflowCmS: number;
+  gravityG: number;
+  electricFieldVoltsCm: number;
+  material: SimulatorMaterial;
+  co2DilutionPct: number;
+}
+
+export interface CombustionSimulationResult {
+  material: SimulatorMaterial;
+  o2Pct: number;
+  pressurePsi: number;
+  airflowCmS: number;
+  gravityG: number;
+  electricFieldVoltsCm: number;
+  co2DilutionPct: number;
+
+  buoyantVelocityCmS: number;
+  ionWindVelocityCmS: number;
+  effectiveVelocityCmS: number;
+  equivalentGravityG: number;
+  limitingO2Pct: number;
+  oxygenMarginPct: number;
+
+  regime: CombustionRegime;
+  flameSpreadRateMmS: number;
+  adiabaticFlameTempK: number;
+  estimatedCO_ppm: number;
+  estimatedCO2_pct: number;
+  smokeSootIndex: number;
+}
+
+export interface FlameRenderGeometry {
+  flameLengthMm: number;
+  flameWidthMm: number;
+  aspectRatio: number;
+  isInsideOutBurner: boolean;
+  coreColorHex: string;
+  outerGlowColorHex: string;
+  sootTailOpacity: number;
+  flickerFrequencyHz: number;
+}
+
+export interface O2PressureCurvePoint {
+  pressurePsi: number;
+  loi_0g_ventilated: number;
+  loi_1g_earth: number;
+  loi_lunar_016g_bounded: number;
+  loi_mars_038g_bounded: number;
+}
+
+export interface O2AirflowCurvePoint {
+  airflowCmS: number;
+  limitingO2Pct: number;
+}
+
+export interface HabitatPin {
+  name: string;
+  o2Pct: number;
+  pressurePsi: number;
+  gravityG: number;
+  limitingO2Pct: number;
+  ignitionLikely: boolean;
+}
+
+export interface FlammabilityEnvelopeData {
+  o2VsPressureCurve: O2PressureCurvePoint[];
+  o2VsAirflowCurve: O2AirflowCurvePoint[];
+  habitatPins: HabitatPin[];
+}
+
+export interface EmpiricalRunMatch {
+  matchScore: number;
+  pi: string;
+  testNumber: string;
+  fuelSampleMaterial: string;
+  airDisplay: string;
+  initialO2Pct: number | null;
+  finalO2Pct: number | null;
+  initialCOPpm: number | null;
+  finalCOPpm: number | null;
+  coPpmJump: number | null;
+  run: NormalizedRun;
+}
+
+export interface FlameZoneGradientStop {
+  offset: string;
+  colorHex: string;
+  opacity: number;
+}
+
+export interface AdvancedFlameZones {
+  schlierenHaloPath: string;
+  reactionSheetPath: string;
+  sootMantlePath: string;
+  pyrolysisCorePath: string;
+  schlierenOpacity: number;
+  reactionSheetColorHex: string;
+  sootMantleOpacity: number;
+  pyrolysisCoreColorHex: string;
+  gradientStops: {
+    schlierenHalo: FlameZoneGradientStop[];
+    reactionSheet: FlameZoneGradientStop[];
+    sootMantle: FlameZoneGradientStop[];
+    pyrolysisCore: FlameZoneGradientStop[];
+  };
+}
+
+export interface WakeVortexNode {
+  x: number;
+  y: number;
+  radius: number;
+  rotationSpeed: number;
+  opacity: number;
+}
+
+export interface AdvancedFlameDynamics {
+  standoffDistancePx: number;
+  plumeTiltAngleDeg: number;
+  wakeVortexNodes: WakeVortexNode[];
+}
+
+export interface FlowStreamlineVector {
+  id: string;
+  d: string;
+  speedMultiplier: number;
+  strokeDasharray: string;
+  isIonDeflected: boolean;
+}
+
+export interface RadiometerSensorOverlay {
+  x: number;
+  y: number;
+  fovPolygonPoints: string;
+  radiativeFluxKwM2: number;
+}
+
+export interface ThermocoupleProbeTip {
+  x: number;
+  y: number;
+  tempK: number;
+  colorHex: string;
+}
+
+export interface AerosolLaserBeamOverlay {
+  x: number;
+  y1: number;
+  y2: number;
+  obscurationPct: number;
+  meanParticleDiameterUm: number;
+  alarmState: "NOMINAL" | "DUST_DISCRIMINATED" | "SMOKE_ALARM";
+}
+
+export interface AdvancedChamberSensors {
+  radiometer: RadiometerSensorOverlay;
+  thermocoupleRake: ThermocoupleProbeTip[];
+  aerosolLaserBeam: AerosolLaserBeamOverlay;
+}
+
+export interface AdvancedFlameField {
+  viewportWidth: number;
+  viewportHeight: number;
+  anchorX: number;
+  anchorY: number;
+  isBurning: boolean;
+  isInsideOutBurner: boolean;
+  Zones: AdvancedFlameZones;
+  FlameDynamics: AdvancedFlameDynamics;
+  Streamlines: FlowStreamlineVector[];
+  ChamberSensors: AdvancedChamberSensors;
+  zones: AdvancedFlameZones;
+  flameDynamics: AdvancedFlameDynamics;
+  streamlines: FlowStreamlineVector[];
+  chamberSensors: AdvancedChamberSensors;
+}
+
+export interface PressureO2HeatmapCell {
+  pressurePsi: number;
+  o2Pct: number;
+  oxygenMarginPct: number;
+  flameSpreadMmS: number;
+  regime: CombustionRegime;
+  riskLevel0to1: number;
+  cellColorHex: string;
+}
+
+export type AirflowValleyZone =
+  | "Diffusive Quenching Wall (< 2 cm/s)"
+  | "Microgravity Super-Flammability Trough (2–12 cm/s)"
+  | "Transition Cooling Region (12–25 cm/s)"
+  | "Convective Blowoff Slope (> 25 cm/s)";
+
+export interface AirflowO2HeatmapCell {
+  airflowCmS: number;
+  o2Pct: number;
+  limitingO2Pct: number;
+  oxygenMarginPct: number;
+  flameSpreadMmS: number;
+  regime: CombustionRegime;
+  zoneTag: AirflowValleyZone;
+  riskLevel0to1: number;
+  cellColorHex: string;
+}
+
+export interface IsoSpreadPoint {
+  pressurePsi: number;
+  o2Pct: number;
+}
+
+export interface IsoSpreadContourSet {
+  slowCreep1MmS: {
+    label: string;
+    targetMmS: number;
+    colorHex: string;
+    points: IsoSpreadPoint[];
+  };
+  rapidCabin5MmS: {
+    label: string;
+    targetMmS: number;
+    colorHex: string;
+    points: IsoSpreadPoint[];
+  };
+  flashoverEva15MmS: {
+    label: string;
+    targetMmS: number;
+    colorHex: string;
+    points: IsoSpreadPoint[];
+  };
+}
+
+export interface BoundingPolygonPoint {
+  x: number;
+  y: number;
+  pressurePsi: number;
+  o2Pct: number;
+}
+
+export interface PreBreatheWaypoint {
+  stepIndex: number;
+  label: string;
+  pressurePsi: number;
+  o2Pct: number;
+  gravityG: number;
+  preBreatheTimeMinutes: number;
+  flameSpreadMmS: number;
+  riskMultiplierVsIss: number;
+}
+
+export interface EmpiricalTelemetryNode {
+  id: string;
+  experimentId: string;
+  testNumber: string;
+  o2Pct: number;
+  pressurePsi: number;
+  airflowCmS: number;
+  gravityG: number;
+  outcomeCategory:
+    | "IGNITED_SUSTAINED"
+    | "EXTINCTION"
+    | "DISRUPTION"
+    | "AEROSOL_SMOKE"
+    | "DUST_DISCRIMINATION";
+  nodeColorHex: string;
+  pulseRadius: number;
+  label: string;
+  keyMetricText: string;
+}
+
+export interface FlammabilityPhaseMatrix {
+  pressureO2HeatmapGrid: PressureO2HeatmapCell[][];
+  airflowO2HeatmapGrid: AirflowO2HeatmapCell[][];
+  isoSpreadContours: IsoSpreadContourSet;
+  partialGravityBoundingPolygon: BoundingPolygonPoint[];
+  preBreatheTradeoffVector: PreBreatheWaypoint[];
+  empiricalTelemetryNodes: EmpiricalTelemetryNode[];
+}
+
+interface ChemistryDelta {
+  initialO2Pct?: number | null;
+  finalO2Pct?: number | null;
+  initialCO2Pct?: number | null;
+  finalCO2Pct?: number | null;
+  initialCOPpm?: number | null;
+  finalCOPpm?: number | null;
+}
+
+interface MaterialPhysics {
+  thicknessMm: number;
+  baseLoiPct: number;
+  spreadFactor: number;
+  sootFactor: number;
+}
+
+const MATERIAL_PHYSICS: Record<SimulatorMaterial, MaterialPhysics> = {
+  "PMMA_FILM_0.1MM": {
+    thicknessMm: 0.1,
+    baseLoiPct: 14.5,
+    spreadFactor: 1.0,
+    sootFactor: 0.55,
+  },
+  PMMA_SLAB_3MM: {
+    thicknessMm: 3.0,
+    baseLoiPct: 16.2,
+    spreadFactor: 0.48,
+    sootFactor: 0.86,
+  },
+  SIBAL_FABRIC: {
+    thicknessMm: 0.35,
+    baseLoiPct: 14.7,
+    spreadFactor: 1.15,
+    sootFactor: 0.42,
+  },
+  NOMEX: {
+    thicknessMm: 0.45,
+    baseLoiPct: 21.5,
+    spreadFactor: 0.24,
+    sootFactor: 0.2,
+  },
+  HEPTANE_DROPLET: {
+    thicknessMm: 2.0,
+    baseLoiPct: 12.8,
+    spreadFactor: 0.85,
+    sootFactor: 0.95,
+  },
+  PROPANE_CFI_G: {
+    thicknessMm: 1.0,
+    baseLoiPct: 11.8,
+    spreadFactor: 0.7,
+    sootFactor: 0.25,
+  },
+};
+
+const DEFAULT_PARAMS: SimulationParams = {
+  o2Pct: 21,
+  pressurePsi: 14.7,
+  airflowCmS: 5,
+  gravityG: 0,
+  electricFieldVoltsCm: 0,
+  material: "PMMA_FILM_0.1MM",
+  co2DilutionPct: 0,
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function finiteOr(value: number | null | undefined, fallback: number): number {
+  return value !== null && value !== undefined && Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function parseNumber(value: string | undefined): number | null {
+  if (!value) return null;
+  const normalized = value.replace(/,/g, "").trim();
+  if (!normalized) return null;
+
+  const match = normalized.match(/[-+]?(?:\d+\.?\d*|\.\d+)/);
+  if (!match) return null;
+
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePressurePsi(
+  rawPressure: number | null,
+  fallback: number | null = 14.7,
+): number | null {
+  if (rawPressure === null || !Number.isFinite(rawPressure) || rawPressure <= 0) {
+    return fallback;
+  }
+  if (rawPressure > 25) {
+    return Number((rawPressure * 0.145038).toFixed(2));
+  }
+  if (rawPressure <= 3.5) {
+    return Number((rawPressure * 14.6959).toFixed(2));
+  }
+  return Number(rawPressure.toFixed(2));
+}
+
+function normalizeO2Concentration(rawO2: number | null): number | null {
+  if (rawO2 === null || !Number.isFinite(rawO2) || rawO2 <= 0) return rawO2;
+  if (rawO2 <= 1) {
+    return Number((rawO2 * 100).toFixed(2));
+  }
+  return rawO2;
+}
+
+function parseGravityG(rawGravity: string): number | null {
+  const trimmed = rawGravity.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("microgravity") || lower.includes("iss") || lower === "0g") {
+    return 0;
+  }
+  if (lower.includes("lunar") || lower.includes("moon")) {
+    return 0.16;
+  }
+  if (lower.includes("mars")) {
+    return 0.38;
+  }
+  if (lower.includes("earth")) {
+    return 1;
+  }
+  return parseNumber(trimmed);
+}
+
+function splitCampaignAndTestId(
+  rawExpId: string,
+  explicitTestNum = "",
+): { experimentId: string; testNumber: string } {
+  const trimmed = rawExpId.trim();
+  const patterns: readonly { regex: RegExp; canonicalId: string }[] = [
+    { regex: /^BASS-?II(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "BASS-II" },
+    { regex: /^BASS(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "BASS" },
+    { regex: /^SAFFIRE-?3(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "SAFFIRE-3" },
+    { regex: /^FLEX-?2(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "FLEX-2" },
+    { regex: /^FLEX(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "FLEX" },
+    { regex: /^SAME-?R(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "SAME-R" },
+    { regex: /^SAME(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "SAME" },
+    { regex: /^DAFT(?:-?2)?(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "DAFT" },
+  ];
+
+  for (const { regex, canonicalId } of patterns) {
+    const match = trimmed.match(regex);
+    if (match) {
+      const remainder = (match[1] ?? "").trim();
+      return {
+        experimentId: canonicalId,
+        testNumber: explicitTestNum || remainder || canonicalId,
+      };
+    }
+  }
+
+  return {
+    experimentId: trimmed,
+    testNumber:
+      explicitTestNum ||
+      (trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed),
+  };
+}
+
+function canonicalHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function readCsv(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const character = csvText[index];
+    const nextCharacter = csvText[index + 1];
+
+    if (character === '"') {
+      if (quoted && nextCharacter === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+
+    if (character === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && nextCharacter === "\n") index += 1;
+      row.push(cell.trim());
+      cell = "";
+
+      if (row.some((value) => value.length > 0)) rows.push(row);
+      row = [];
+      continue;
+    }
+
+    cell += character;
+  }
+
+  row.push(cell.trim());
+  if (row.some((value) => value.length > 0)) rows.push(row);
+
+  return rows;
+}
+
+function getValue(
+  record: Record<string, string>,
+  aliases: readonly string[],
+): string {
+  for (const alias of aliases) {
+    const value = record[canonicalHeader(alias)];
+    if (value !== undefined) return value;
+  }
+  return "";
+}
+
+function materialForSimulator(
+  material: SimulatorMaterial,
+): BaseMaterial {
+  if (material.startsWith("PMMA")) return "PMMA";
+  if (material === "SIBAL_FABRIC") return "SIBAL (Cotton-Fiberglass)";
+  if (material === "NOMEX") return "Nomex";
+  if (material === "HEPTANE_DROPLET") return "Heptane";
+  return "Propane/Methane";
+}
+
+function baseMaterialSimilarity(
+  simulatorMaterial: SimulatorMaterial,
+  runMaterial: BaseMaterial,
+): number {
+  const target = materialForSimulator(simulatorMaterial);
+  if (target === runMaterial) return 0;
+  if (runMaterial === "Unknown") return 0.8;
+  return 3;
+}
+
+export function extractMaterialGeometry(rawMaterial: string): MaterialGeometry {
+  const text = rawMaterial.trim();
+  const lower = text.toLowerCase();
+
+  let baseMaterial: BaseMaterial = "Unknown";
+  if (
+    /\bpmma\b|polymethyl\s*methacrylate|plexiglas|acrylic|\brod\b|micron\s*film|thick\s*film|spherical\s*section|200\s*micron/.test(
+      lower,
+    )
+  ) {
+    baseMaterial = "PMMA";
+  } else if (/\bsphere\b/.test(lower)) {
+    baseMaterial = "PMMA";
+  } else if (/\bsibal\b|cotton[\s-]*fiberglass|cotton[\s-]*glass/.test(lower)) {
+    baseMaterial = "SIBAL (Cotton-Fiberglass)";
+  } else if (/\bnomex\b/.test(lower)) {
+    baseMaterial = "Nomex";
+  } else if (/\bparaf+in\b|\bwax\b|\bcandle\b/.test(lower)) {
+    baseMaterial = "Paraffin Wax";
+  } else if (
+    /\bkapton\b|polyimide|\bteflon\b|\bsilicone\b|\bpyrell\b|\bultem\b|\blampwick\b|phthalate/.test(
+      lower,
+    )
+  ) {
+    baseMaterial = "Kapton";
+  } else if (
+    /\bheptane\b|\bmethanol\b|\bethanol\b|(?:iso|n-)?octane\b|\bdecane\b|\bpropanol\b|\bglycerol\b/.test(
+      lower,
+    )
+  ) {
+    baseMaterial = "Heptane";
+  } else if (/\bpropane\b|\bmethane\b|\bcfi[\s-]*g\b/.test(lower)) {
+    baseMaterial = "Propane/Methane";
+  }
+
+  let geometryType: GeometryType = "Fabric";
+  if (/\bpropane\b|\bmethane\b|\bburner\b|\bcfi[\s-]*g\b/.test(lower)) {
+    geometryType = "Gas Burner";
+  } else if (
+    /\bdroplet\b|\bmethanol\b|\bethanol\b|(?:iso|n-)?octane\b|\bdecane\b|\bpropanol\b|\bglycerol\b|\bheptane\b/.test(
+      lower,
+    )
+  ) {
+    geometryType = "Droplet";
+  } else if (/\bcandle\b/.test(lower)) {
+    geometryType = "Candle";
+  } else if (/\bsphere|spherical/.test(lower)) {
+    geometryType = "Sphere";
+  } else if (/\brod\b|\bcylinder\b|black rod/.test(lower)) {
+    geometryType = "Cylinder/Rod";
+  } else if (/\bfilm\b|\bsheet\b/.test(lower)) {
+    geometryType = "Film/Sheet";
+  } else if (/\bslab\b|\bthick\b/.test(lower)) {
+    geometryType = "Slab";
+  } else if (/\bfabric\b|\bcloth\b|\bsibal\b|\bnomex\b/.test(lower)) {
+    geometryType = "Fabric";
+  }
+
+  let thicknessMm: number | null = null;
+
+  const micronMatch = lower.match(
+    /(\d+(?:\.\d+)?)\s*(?:micron|microns|μm|um)\b/,
+  );
+  const millimeterMatch = lower.match(
+    /(\d+(?:\.\d+)?)\s*(?:mm|millimeter|millimeters)\b/,
+  );
+  const fractionInchMatch = lower.match(
+    /(\d+)\s*\/\s*(\d+)(?:\s*(?:"|inches?|inch|\bin\b))?/,
+  );
+  const decimalInchMatch = lower.match(
+    /(\d+(?:\.\d+)?)\s*(?:"|inches?|inch|\bin\b)/,
+  );
+
+  if (micronMatch) {
+    thicknessMm = Number.parseFloat(micronMatch[1]) / 1000;
+  } else if (millimeterMatch) {
+    thicknessMm = Number.parseFloat(millimeterMatch[1]);
+  } else if (fractionInchMatch) {
+    thicknessMm = Number(
+      (
+        (Number.parseFloat(fractionInchMatch[1]) /
+          Number.parseFloat(fractionInchMatch[2])) *
+        25.4
+      ).toFixed(3),
+    );
+  } else if (decimalInchMatch) {
+    thicknessMm = Number(
+      (Number.parseFloat(decimalInchMatch[1]) * 25.4).toFixed(3),
+    );
+  }
+
+  const explicitWidth = lower.match(
+    /(\d+(?:\.\d+)?)\s*cm\s*(?:wide|width)\b/,
+  );
+  const firstCentimeterDimension = lower.match(/(\d+(?:\.\d+)?)\s*cm\b/);
+
+  const widthCm = explicitWidth
+    ? Number.parseFloat(explicitWidth[1])
+    : firstCentimeterDimension
+      ? Number.parseFloat(firstCentimeterDimension[1])
+      : null;
+
+  return {
+    baseMaterial,
+    geometryType,
+    thicknessMm,
+    widthCm,
+  };
+}
+
+export function extractAirflowTrajectory(
+  rawAirDisplay: string,
+  chemistry: ChemistryDelta = {},
+): AirflowTrajectory {
+  const text = rawAirDisplay.trim();
+  const lower = text.toLowerCase();
+  const airflowSteps = (text.match(/(?:\d+\.?\d*|\.\d+)/g) ?? [])
+    .map((value) => Number.parseFloat(value))
+    .filter((value) => Number.isFinite(value));
+
+  const initialAirflowCmS =
+    airflowSteps.length > 0 ? airflowSteps[0] : null;
+  const finalAirflowCmS =
+    airflowSteps.length > 0 ? airflowSteps[airflowSteps.length - 1] : null;
+
+  const deltaO2 =
+    chemistry.initialO2Pct !== null &&
+    chemistry.initialO2Pct !== undefined &&
+    chemistry.finalO2Pct !== null &&
+    chemistry.finalO2Pct !== undefined
+      ? chemistry.initialO2Pct - chemistry.finalO2Pct
+      : 0;
+
+  const deltaCO2 =
+    chemistry.initialCO2Pct !== null &&
+    chemistry.initialCO2Pct !== undefined &&
+    chemistry.finalCO2Pct !== null &&
+    chemistry.finalCO2Pct !== undefined
+      ? chemistry.finalCO2Pct - chemistry.initialCO2Pct
+      : 0;
+
+  const deltaCO =
+    chemistry.initialCOPpm !== null &&
+    chemistry.initialCOPpm !== undefined &&
+    chemistry.finalCOPpm !== null &&
+    chemistry.finalCOPpm !== undefined
+      ? chemistry.finalCOPpm - chemistry.initialCOPpm
+      : 0;
+
+  let extinctionMechanism: ExtinctionMechanism;
+  if (/\bblow[\s-]*off\b/.test(lower)) {
+    extinctionMechanism = "Convective Blowoff (High Flow Limit)";
+  } else if (
+    /\bext(?:inction)?\b/.test(lower) ||
+    airflowSteps.some((step) => step <= 2)
+  ) {
+    extinctionMechanism = "Diffusive Quenching (Low Flow Limit)";
+  } else if (deltaO2 >= 1 || deltaCO2 >= 0.2) {
+    extinctionMechanism = "Oxygen Depletion / Product Accumulation";
+  } else if (deltaCO >= 50) {
+    extinctionMechanism = "Incomplete Combustion / Sooting";
+  } else {
+    extinctionMechanism = "No Extinction Observed";
+  }
+
+  return {
+    initialAirflowCmS,
+    finalAirflowCmS,
+    airflowSteps,
+    extinctionMechanism,
+  };
+}
+
+function buildHumanNormalizedRun(
+  record: Record<string, string>,
+  rowIndex: number,
+): NormalizedRun {
+  const rawExpId =
+    getValue(record, ["experiment_id"]) || `HUMAN-ROW-${rowIndex + 2}`;
+  const explicitTestNum = getValue(record, ["test_number", "test #", "run_id"]);
+  const { experimentId, testNumber } = splitCampaignAndTestId(
+    rawExpId,
+    explicitTestNum,
+  );
+  const rawFuelMaterial = getValue(record, ["fuel_material_type"]);
+  const airDisplay = getValue(record, ["airflow"]);
+  const o2Pct = normalizeO2Concentration(
+    parseNumber(getValue(record, ["o2_concentration"])),
+  );
+  const coPpm = parseNumber(getValue(record, ["co"]));
+  const co2Pct = parseNumber(getValue(record, ["co2"]));
+  const material = extractMaterialGeometry(rawFuelMaterial);
+  const airflow = extractAirflowTrajectory(airDisplay, {
+    initialO2Pct: o2Pct,
+    finalO2Pct: o2Pct,
+    initialCO2Pct: co2Pct,
+    finalCO2Pct: co2Pct,
+    initialCOPpm: 0,
+    finalCOPpm: coPpm,
+  });
+
+  return {
+    sourceFormat: "HUMAN_NORMALIZED",
+    experimentId,
+    pi: getValue(record, ["pi"]),
+    testNumber,
+    date: "",
+    gmt: "",
+    sampleNumber: "",
+    rawFuelMaterial,
+    flowRestrictor: "",
+    fanDisplay: "",
+    airDisplay,
+    radiometerGain: "",
+    totalFramesShot: null,
+    initialO2Pct: o2Pct,
+    finalO2Pct: o2Pct,
+    initialCO2Pct: co2Pct,
+    finalCO2Pct: co2Pct,
+    initialCOPpm: coPpm !== null ? 0 : null,
+    finalCOPpm: coPpm,
+    pressurePsi: normalizePressurePsi(
+      parseNumber(
+        getValue(record, ["pressure", "pressure_psi", "pressure_kpa"]),
+      ),
+      14.7,
+    ),
+    temperatureK: parseNumber(getValue(record, ["temperature"])),
+    gravityG: parseGravityG(getValue(record, ["gravity_level"])),
+    ignitionStatus: getValue(record, ["ignition_status"]),
+    burnDurationS: parseNumber(getValue(record, ["burn_duration"])),
+    flameTemperatureK: parseNumber(
+      getValue(record, ["flame_temperature"]),
+    ),
+    flameSpreadMmS: parseNumber(getValue(record, ["flame_spread"])),
+    extinctionStatus: getValue(record, ["extinction_status"]),
+    smokeParticleConc: parseNumber(
+      getValue(record, ["smoke_particle_conc"]),
+    ),
+    ...material,
+    ...airflow,
+  };
+}
+
+export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
+  const csvRows = readCsv(csvText);
+  if (csvRows.length < 2) return [];
+
+  const headers = csvRows[0];
+  const canonicalHeaders = headers.map(canonicalHeader);
+  const isRawPsi = canonicalHeaders.some(
+    (header) =>
+      header === "fuelsamplematerial" ||
+      header === "calibratedinitialo2byvol",
+  );
+
+  const isHumanNormalized =
+    canonicalHeaders.includes("experimentid") &&
+    (canonicalHeaders.includes("fuelmaterialtype") ||
+      canonicalHeaders.includes("o2concentration"));
+
+  if (!isRawPsi && !isHumanNormalized) {
+    throw new Error(
+      "Unsupported CSV format. Expected NASA PSI/BASS-II columns or the normalized experiment_id schema.",
+    );
+  }
+
+  return csvRows.slice(1).flatMap((cells, rowIndex): NormalizedRun[] => {
+    if (!cells.some((cell) => cell.trim().length > 0)) return [];
+
+    const record: Record<string, string> = {};
+    headers.forEach((header, columnIndex) => {
+      record[canonicalHeader(header)] = cells[columnIndex] ?? "";
+    });
+
+    if (isRawPsi) {
+      const initialO2Pct = normalizeO2Concentration(
+        parseNumber(
+          getValue(record, [
+            "Calibrated initial O2 % by vol",
+            "Initial O2 % by vol",
+          ]),
+        ),
+      );
+      const finalO2Pct = normalizeO2Concentration(
+        parseNumber(
+          getValue(record, [
+            "Calibrated final O2 % by vol",
+            "Final O2 % by vol",
+          ]),
+        ),
+      );
+      const initialCO2Pct = parseNumber(
+        getValue(record, ["Initial CO2 % by vol"]),
+      );
+      const finalCO2Pct = parseNumber(
+        getValue(record, ["Final CO2 % by vol"]),
+      );
+      const initialCOPpm = parseNumber(
+        getValue(record, ["Initial CO (ppm)", "Initial CO ppm"]),
+      );
+      const finalCOPpm = parseNumber(
+        getValue(record, ["Final CO (ppm)", "Final CO ppm"]),
+      );
+      const rawFuelMaterial = getValue(record, ["Fuel Sample Material"]);
+      const airDisplay = getValue(record, ["Air display"]);
+      const material = extractMaterialGeometry(rawFuelMaterial);
+      const airflow = extractAirflowTrajectory(airDisplay, {
+        initialO2Pct,
+        finalO2Pct,
+        initialCO2Pct,
+        finalCO2Pct,
+        initialCOPpm,
+        finalCOPpm,
+      });
+      const rawExpId =
+        getValue(record, ["experiment_id", "Experiment ID"]) || "BASS-II";
+      const explicitTestNum =
+        getValue(record, ["Test #"]) || `PSI-ROW-${rowIndex + 2}`;
+      const { experimentId, testNumber } = splitCampaignAndTestId(
+        rawExpId,
+        explicitTestNum,
+      );
+
+      return [
+        {
+          sourceFormat: "NASA_PSI_RAW",
+          experimentId,
+          pi: getValue(record, ["PI"]),
+          testNumber,
+          date: getValue(record, ["Date"]),
+          gmt: getValue(record, ["GMT"]),
+          sampleNumber: getValue(record, ["Sample #"]),
+          rawFuelMaterial,
+          flowRestrictor: getValue(record, ["Flow restrictor"]),
+          fanDisplay: getValue(record, ["Fan display"]),
+          airDisplay,
+          radiometerGain: getValue(record, [
+            "Radiometer gain (1000 250 50 10)",
+          ]),
+          totalFramesShot: parseNumber(
+            getValue(record, ["Total Frames Shot"]),
+          ),
+          initialO2Pct,
+          finalO2Pct,
+          initialCO2Pct,
+          finalCO2Pct,
+          initialCOPpm,
+          finalCOPpm,
+          pressurePsi: normalizePressurePsi(
+            parseNumber(getValue(record, ["Pressure (psi)", "Pressure"])),
+            14.7,
+          ),
+          temperatureK: null,
+          gravityG: 0,
+          ignitionStatus: "",
+          burnDurationS: null,
+          flameTemperatureK: null,
+          flameSpreadMmS: null,
+          extinctionStatus: airflow.extinctionMechanism,
+          smokeParticleConc: null,
+          ...material,
+          ...airflow,
+        },
+      ];
+    }
+
+    return [buildHumanNormalizedRun(record, rowIndex)];
+  });
+}
+
+export function loadMasterPsiDataset(rawMasterData: unknown): NormalizedRun[] {
+  if (typeof rawMasterData === "string") {
+    return parseAndNormalizePsiCsv(rawMasterData);
+  }
+
+  if (Array.isArray(rawMasterData)) {
+    return rawMasterData.flatMap((entry, index): NormalizedRun[] => {
+      if (!entry || typeof entry !== "object") return [];
+      const record: Record<string, string> = {};
+      for (const [key, value] of Object.entries(
+        entry as Record<string, unknown>,
+      )) {
+        record[canonicalHeader(key)] =
+          value === null || value === undefined ? "" : String(value);
+      }
+
+      if (
+        "fuelsamplematerial" in record ||
+        "calibratedinitialo2byvol" in record
+      ) {
+        const headers = Object.keys(entry as Record<string, unknown>);
+        const syntheticCsv = [
+          headers.join(","),
+          headers
+            .map((header) => {
+              const cell = String(
+                (entry as Record<string, unknown>)[header] ?? "",
+              ).replace(/"/g, '""');
+              return `"${cell}"`;
+            })
+            .join(","),
+        ].join("\n");
+        return parseAndNormalizePsiCsv(syntheticCsv);
+      }
+
+      return [buildHumanNormalizedRun(record, index)];
+    });
+  }
+
+  if (rawMasterData && typeof rawMasterData === "object") {
+    const container = rawMasterData as Record<string, unknown>;
+    if ("MASTER_PSI_CSV" in container) {
+      return loadMasterPsiDataset(container.MASTER_PSI_CSV);
+    }
+    if ("default" in container) {
+      return loadMasterPsiDataset(container.default);
+    }
+    if ("rows" in container) {
+      return loadMasterPsiDataset(container.rows);
+    }
+  }
+
+  throw new Error(
+    "Unsupported master PSI dataset input. Expected CSV string or array of run objects.",
+  );
+}
+
+export function simulateCombustionPhysics(
+  params: SimulationParams,
+): CombustionSimulationResult {
+  const o2Pct = clamp(finiteOr(params.o2Pct, 21), 10, 100);
+  const pressurePsi = clamp(finiteOr(params.pressurePsi, 14.7), 4, 15);
+  const airflowCmS = clamp(finiteOr(params.airflowCmS, 5), 0, 60);
+  const gravityG = clamp(finiteOr(params.gravityG, 0), 0, 1);
+  const electricFieldVoltsCm = clamp(
+    finiteOr(params.electricFieldVoltsCm, 0),
+    0,
+    3000,
+  );
+  const co2DilutionPct = clamp(finiteOr(params.co2DilutionPct, 0), 0, 20);
+  const material = params.material in MATERIAL_PHYSICS
+    ? params.material
+    : DEFAULT_PARAMS.material;
+  const materialPhysics = MATERIAL_PHYSICS[material];
+
+  const buoyantVelocityCmS = 22 * Math.sqrt(gravityG);
+  const ionWindVelocityCmS = 0.008 * electricFieldVoltsCm;
+  const naturalDraftCmS = buoyantVelocityCmS + ionWindVelocityCmS;
+  const effectiveVelocityCmS = Math.sqrt(
+    airflowCmS ** 2 + naturalDraftCmS ** 2,
+  );
+
+  const equivalentGravityG = (naturalDraftCmS / 22) ** 2;
+
+  const lowFlowPenalty =
+    effectiveVelocityCmS < 2
+      ? 4.8 * ((2 - effectiveVelocityCmS) / 2) ** 1.25
+      : 0;
+
+  const highFlowPenalty =
+    effectiveVelocityCmS > 12
+      ? 0.04 * (effectiveVelocityCmS - 12) ** 1.4
+      : 0;
+
+  const pressureScale = (pressurePsi / 14.7) ** -0.25;
+  const thicknessCorrection =
+    0.22 *
+    Math.log2(
+      Math.max(0.05, materialPhysics.thicknessMm) /
+        0.35,
+    );
+
+  const limitingO2Pct = clamp(
+    (materialPhysics.baseLoiPct +
+      thicknessCorrection +
+      lowFlowPenalty +
+      highFlowPenalty +
+      co2DilutionPct * 0.32) *
+      pressureScale,
+    8,
+    99,
+  );
+
+  const oxygenMarginPct = o2Pct - limitingO2Pct;
+  const isHighFlowFailure = effectiveVelocityCmS >= 25;
+  const ignited = oxygenMarginPct > 0;
+
+  let regime: CombustionRegime;
+  if (!ignited && isHighFlowFailure) {
+    regime = "NO_IGNITION_BLOWOFF";
+  } else if (!ignited) {
+    regime = "NO_IGNITION_QUENCHED";
+  } else {
+    const cfiCoolFlame =
+      material === "PROPANE_CFI_G" &&
+      o2Pct >= 45 &&
+      effectiveVelocityCmS <= 18 &&
+      co2DilutionPct < 8;
+
+    if (cfiCoolFlame) {
+      regime = "COOL_FLAME_CFI_G";
+    } else if (o2Pct >= 30) {
+      regime = "CRITICAL_ACCELERATED_BURN";
+    } else if (gravityG <= 0.05 && effectiveVelocityCmS < 2.5) {
+      regime = "SPHERICAL_DIFFUSION_FLAME";
+    } else {
+      regime = "ELONGATED_MICROGRAVITY_FLAME";
+    }
+  }
+
+  const flameSpreadRateMmS = ignited
+    ? clamp(
+        0.18 *
+          oxygenMarginPct *
+          Math.sqrt(Math.max(0.35, effectiveVelocityCmS)) *
+          materialPhysics.spreadFactor /
+          materialPhysics.thicknessMm ** 0.65,
+        0,
+        75,
+      )
+    : 0;
+
+  const coolFlame = regime === "COOL_FLAME_CFI_G";
+  const adiabaticFlameTempK = !ignited
+    ? 295
+    : coolFlame
+      ? clamp(610 + o2Pct * 1.4 - co2DilutionPct * 8, 550, 750)
+      : clamp(
+          1250 +
+            35 * (o2Pct - 10) +
+            8 * Math.sqrt(effectiveVelocityCmS) -
+            22 * co2DilutionPct +
+            10 * (pressurePsi - 10),
+          1350,
+          2400,
+        );
+
+  const lowFlowIncomplete = clamp(
+    (2.5 - effectiveVelocityCmS) / 2.5,
+    0,
+    1,
+  );
+  const blowoffIncomplete = clamp(
+    (effectiveVelocityCmS - 20) / 40,
+    0,
+    1,
+  );
+  const thickFuelIncomplete = clamp(
+    materialPhysics.thicknessMm / 5,
+    0,
+    0.65,
+  );
+  const lowOxygenIncomplete = clamp(
+    (limitingO2Pct + 4 - o2Pct) / 7,
+    0,
+    1,
+  );
+
+  const incompleteFraction = clamp(
+    0.04 +
+      0.65 * lowFlowIncomplete +
+      0.42 * blowoffIncomplete +
+      0.28 * thickFuelIncomplete +
+      0.35 * lowOxygenIncomplete,
+    0,
+    1,
+  );
+
+  const estimatedCO_ppm = ignited
+    ? Math.round(
+        clamp(
+          5 +
+            945 *
+              incompleteFraction *
+              materialPhysics.sootFactor *
+              (1 - clamp((o2Pct - 21) / 120, 0, 0.55)),
+          5,
+          950,
+        ),
+      )
+    : 0;
+
+  const estimatedCO2_pct = ignited
+    ? Number(
+        clamp(
+          1.4 +
+            oxygenMarginPct * 0.28 +
+            Math.sqrt(effectiveVelocityCmS) * 0.16 -
+            incompleteFraction * 1.4 -
+            co2DilutionPct * 0.08,
+          0.1,
+          12,
+        ).toFixed(2),
+      )
+    : 0;
+
+  const smokeSootIndex = ignited
+    ? Math.round(
+        clamp(
+          100 *
+            incompleteFraction *
+            materialPhysics.sootFactor *
+            (0.65 + 0.35 * clamp(flameSpreadRateMmS / 18, 0, 1)),
+          0,
+          100,
+        ),
+      )
+    : 0;
+
+  return {
+    material,
+    o2Pct,
+    pressurePsi,
+    airflowCmS,
+    gravityG,
+    electricFieldVoltsCm,
+    co2DilutionPct,
+    buoyantVelocityCmS,
+    ionWindVelocityCmS,
+    effectiveVelocityCmS,
+    equivalentGravityG,
+    limitingO2Pct: Number(limitingO2Pct.toFixed(2)),
+    oxygenMarginPct: Number(oxygenMarginPct.toFixed(2)),
+    regime,
+    flameSpreadRateMmS: Number(flameSpreadRateMmS.toFixed(2)),
+    adiabaticFlameTempK: Math.round(adiabaticFlameTempK),
+    estimatedCO_ppm,
+    estimatedCO2_pct,
+    smokeSootIndex,
+  };
+}
+
+export function generateFlameRenderGeometry(
+  simResult: CombustionSimulationResult,
+): FlameRenderGeometry {
+  const isBurning = !simResult.regime.startsWith("NO_IGNITION");
+  const spherical =
+    simResult.regime === "SPHERICAL_DIFFUSION_FLAME";
+  const coolFlame = simResult.regime === "COOL_FLAME_CFI_G";
+  const critical =
+    simResult.regime === "CRITICAL_ACCELERATED_BURN";
+
+  const aspectRatio = !isBurning
+    ? 1
+    : spherical
+      ? 1
+      : clamp(
+          1 +
+            simResult.effectiveVelocityCmS / 7 +
+            simResult.gravityG * 1.7,
+          1,
+          9,
+        );
+
+  const flameWidthMm = !isBurning
+    ? 0
+    : clamp(
+        18 +
+          simResult.oxygenMarginPct * 1.4 +
+          (spherical ? 14 : 0),
+        12,
+        85,
+      );
+
+  const flameLengthMm = !isBurning
+    ? 0
+    : Number((flameWidthMm * aspectRatio).toFixed(1));
+
+  let coreColorHex = "#1E293B";
+  let outerGlowColorHex = "#334155";
+
+  if (spherical) {
+    coreColorHex = "#00E5FF";
+    outerGlowColorHex = "#66F6FF";
+  } else if (coolFlame) {
+    coreColorHex = "#6366F1";
+    outerGlowColorHex = "#A78BFA";
+  } else if (critical || simResult.o2Pct >= 55) {
+    coreColorHex = "#FFFFFF";
+    outerGlowColorHex = "#FF7A00";
+  } else if (isBurning) {
+    coreColorHex = "#FF7A00";
+    outerGlowColorHex = "#FFD166";
+  }
+
+  const sootTailOpacity = isBurning
+    ? Number(
+        clamp(
+          (simResult.smokeSootIndex / 100) *
+            (0.35 + simResult.effectiveVelocityCmS / 90),
+          0,
+          1,
+        ).toFixed(2),
+      )
+    : 0;
+
+  const laminarZeroG =
+    simResult.gravityG <= 0.02 &&
+    simResult.airflowCmS < 1 &&
+    simResult.electricFieldVoltsCm < 1;
+
+  const flickerFrequencyHz = !isBurning || laminarZeroG
+    ? 0
+    : Number(
+        clamp(
+          1.5 +
+            8 * simResult.gravityG +
+            0.06 * simResult.airflowCmS +
+            (simResult.regime === "CRITICAL_ACCELERATED_BURN" ? 1.5 : 0),
+          0,
+          12,
+        ).toFixed(1),
+      );
+
+  return {
+    flameLengthMm,
+    flameWidthMm: Number(flameWidthMm.toFixed(1)),
+    aspectRatio: Number(aspectRatio.toFixed(2)),
+    isInsideOutBurner:
+      simResult.material === "PROPANE_CFI_G" &&
+      simResult.o2Pct <= 85 &&
+      isBurning,
+    coreColorHex,
+    outerGlowColorHex,
+    sootTailOpacity,
+    flickerFrequencyHz,
+  };
+}
+
+function buildClosedPlumeBezierPath(
+  originX: number,
+  originY: number,
+  tiltRad: number,
+  rearOffset: number,
+  tipLength: number,
+  halfWidth: number,
+  bulgeFraction: number,
+): string {
+  const cosT = Math.cos(tiltRad);
+  const sinT = Math.sin(tiltRad);
+
+  const toWorld = (localS: number, localN: number): [number, number] => [
+    clamp(originX + localS * cosT + localN * sinT, 12, 626),
+    clamp(originY - localS * sinT + localN * cosT, 12, 368),
+  ];
+
+  const [backX, backY] = toWorld(-rearOffset, 0);
+  const [topX, topY] = toWorld(tipLength * bulgeFraction, -halfWidth);
+  const [tipX, tipY] = toWorld(tipLength, 0);
+  const [botX, botY] = toWorld(tipLength * bulgeFraction, halfWidth);
+
+  const [c1x, c1y] = toWorld(-rearOffset * 0.45, -halfWidth * 0.92);
+  const [c2x, c2y] = toWorld(tipLength * (bulgeFraction * 0.55), -halfWidth);
+  const [c3x, c3y] = toWorld(tipLength * (bulgeFraction + (1 - bulgeFraction) * 0.55), -halfWidth * 0.72);
+  const [c4x, c4y] = toWorld(tipLength * 0.94, -halfWidth * 0.24);
+  const [c5x, c5y] = toWorld(tipLength * 0.94, halfWidth * 0.24);
+  const [c6x, c6y] = toWorld(tipLength * (bulgeFraction + (1 - bulgeFraction) * 0.55), halfWidth * 0.72);
+  const [c7x, c7y] = toWorld(tipLength * (bulgeFraction * 0.55), halfWidth);
+  const [c8x, c8y] = toWorld(-rearOffset * 0.45, halfWidth * 0.92);
+
+  return [
+    `M ${backX.toFixed(1)} ${backY.toFixed(1)}`,
+    `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${topX.toFixed(1)} ${topY.toFixed(1)}`,
+    `C ${c3x.toFixed(1)} ${c3y.toFixed(1)}, ${c4x.toFixed(1)} ${c4y.toFixed(1)}, ${tipX.toFixed(1)} ${tipY.toFixed(1)}`,
+    `C ${c5x.toFixed(1)} ${c5y.toFixed(1)}, ${c6x.toFixed(1)} ${c6y.toFixed(1)}, ${botX.toFixed(1)} ${botY.toFixed(1)}`,
+    `C ${c7x.toFixed(1)} ${c7y.toFixed(1)}, ${c8x.toFixed(1)} ${c8y.toFixed(1)}, ${backX.toFixed(1)} ${backY.toFixed(1)}`,
+    "Z",
+  ].join(" ");
+}
+
+function thermocoupleColor(tempK: number): string {
+  if (tempK >= 1800) return "#FEF3C7";
+  if (tempK >= 1350) return "#F97316";
+  if (tempK >= 850) return "#F59E0B";
+  if (tempK >= 540) return "#818CF8";
+  return "#64748B";
+}
+
+export function generateAdvancedFlameField(
+  simResult: CombustionSimulationResult,
+): AdvancedFlameField {
+  const viewportWidth = 640;
+  const viewportHeight = 380;
+  const anchorX = 170;
+  const anchorY = 190;
+
+  const baseFlame = generateFlameRenderGeometry(simResult);
+  const isBurning = !simResult.regime.startsWith("NO_IGNITION");
+  const isSpherical = simResult.regime === "SPHERICAL_DIFFUSION_FLAME";
+  const isCoolFlame = simResult.regime === "COOL_FLAME_CFI_G";
+  const isCritical = simResult.regime === "CRITICAL_ACCELERATED_BURN";
+
+  const buoyantPlusIon =
+    simResult.buoyantVelocityCmS + simResult.ionWindVelocityCmS;
+  const vFan = Math.max(0.5, simResult.airflowCmS);
+  const tiltRad = Math.atan2(buoyantPlusIon, vFan);
+  const plumeTiltAngleDeg = Number(((tiltRad * 180) / Math.PI).toFixed(2));
+
+  const standoffDistancePx = !isBurning
+    ? simResult.regime === "NO_IGNITION_BLOWOFF"
+      ? 32
+      : 0
+    : Number(
+        clamp(
+          4 + 24 * clamp((simResult.effectiveVelocityCmS - 4) / 18, 0, 1.08),
+          4,
+          28,
+        ).toFixed(1),
+      );
+
+  const cosT = Math.cos(tiltRad);
+  const sinT = Math.sin(tiltRad);
+  const liftedOriginX = anchorX + standoffDistancePx * cosT;
+  const liftedOriginY = anchorY - standoffDistancePx * sinT;
+
+  const haloLength = isBurning
+    ? clamp(
+        (isSpherical ? 62 : 95) +
+          baseFlame.flameLengthMm * 0.88 -
+          simResult.effectiveVelocityCmS * 0.4,
+        64,
+        305,
+      )
+    : 48;
+  const haloHalfW = isBurning
+    ? clamp(
+        (isSpherical ? 86 : 64) -
+          simResult.effectiveVelocityCmS * 0.7 +
+          Math.max(0, simResult.oxygenMarginPct) * 0.4,
+        24,
+        112,
+      )
+    : 22;
+
+  const schlierenHaloPath = buildClosedPlumeBezierPath(
+    liftedOriginX,
+    liftedOriginY,
+    tiltRad,
+    isSpherical ? haloHalfW : 24,
+    isSpherical ? haloHalfW : haloLength,
+    haloHalfW,
+    isSpherical ? 0.5 : 0.34,
+  );
+
+  const reactionLen = isBurning
+    ? clamp(
+        (isSpherical ? 44 : 74) + baseFlame.flameLengthMm * 0.72,
+        44,
+        260,
+      )
+    : 26;
+  const reactionHalfW = isBurning
+    ? clamp(
+        (isSpherical ? 52 : 36) +
+          Math.max(0, simResult.oxygenMarginPct) * 0.32 -
+          simResult.effectiveVelocityCmS * 0.32,
+        14,
+        74,
+      )
+    : 12;
+
+  const reactionSheetPath = buildClosedPlumeBezierPath(
+    liftedOriginX,
+    liftedOriginY,
+    tiltRad,
+    isSpherical ? reactionHalfW : 16,
+    isSpherical ? reactionHalfW : reactionLen,
+    reactionHalfW,
+    isSpherical ? 0.5 : 0.3,
+  );
+
+  const pureZeroGSpherical =
+    simResult.gravityG <= 0.05 && simResult.effectiveVelocityCmS < 2.5;
+  const hasStrongSoot =
+    isBurning && (simResult.o2Pct >= 25 || simResult.effectiveVelocityCmS >= 4);
+
+  const sootLen = !isBurning
+    ? 14
+    : hasStrongSoot
+      ? clamp(
+          reactionLen * 0.96 + (simResult.o2Pct - 21) * 1.45,
+          44,
+          248,
+        )
+      : clamp(reactionLen * 0.52, 18, 72);
+  const sootHalfW = !isBurning
+    ? 7
+    : clamp(
+        reactionHalfW * (hasStrongSoot ? 0.76 : 0.45),
+        8,
+        54,
+      );
+  const sootMantleOpacity =
+    !isBurning || pureZeroGSpherical
+      ? 0
+      : Number(
+          clamp(
+            (hasStrongSoot ? 0.48 : 0.2) +
+              (simResult.smokeSootIndex / 100) * 0.45,
+            0.05,
+            0.92,
+          ).toFixed(2),
+        );
+
+  const sootMantlePath = buildClosedPlumeBezierPath(
+    liftedOriginX,
+    liftedOriginY,
+    tiltRad,
+    isSpherical ? sootHalfW : 10,
+    isSpherical ? sootHalfW : sootLen,
+    sootHalfW,
+    0.26,
+  );
+
+  const pyrolysisCorePath = buildClosedPlumeBezierPath(
+    anchorX,
+    anchorY,
+    tiltRad,
+    baseFlame.isInsideOutBurner ? 16 : 12,
+    baseFlame.isInsideOutBurner ? 22 : isBurning ? 42 : 24,
+    baseFlame.isInsideOutBurner ? 18 : 13,
+    0.42,
+  );
+
+  const reactionSheetColorHex = isCoolFlame
+    ? "#6366F1"
+    : isSpherical
+      ? "#00E5FF"
+      : simResult.effectiveVelocityCmS >= 3
+        ? "#38BDF8"
+        : isCritical
+          ? "#FFFFFF"
+          : "#00E5FF";
+
+  const zones: AdvancedFlameZones = {
+    schlierenHaloPath,
+    reactionSheetPath,
+    sootMantlePath,
+    pyrolysisCorePath,
+    schlierenOpacity: isBurning ? 0.18 : 0.08,
+    reactionSheetColorHex,
+    sootMantleOpacity,
+    pyrolysisCoreColorHex: "#0F172A",
+    gradientStops: {
+      schlierenHalo: [
+        { offset: "0%", colorHex: "#94A3B8", opacity: 0.28 },
+        { offset: "65%", colorHex: "#38BDF8", opacity: 0.18 },
+        { offset: "100%", colorHex: "#0F172A", opacity: 0 },
+      ],
+      reactionSheet: [
+        { offset: "0%", colorHex: reactionSheetColorHex, opacity: 0.92 },
+        { offset: "70%", colorHex: baseFlame.outerGlowColorHex, opacity: 0.55 },
+        { offset: "100%", colorHex: reactionSheetColorHex, opacity: 0.12 },
+      ],
+      sootMantle: [
+        { offset: "0%", colorHex: "#FFFBEB", opacity: sootMantleOpacity },
+        {
+          offset: "55%",
+          colorHex: "#FF7A00",
+          opacity: Number((sootMantleOpacity * 0.85).toFixed(2)),
+        },
+        { offset: "100%", colorHex: "#7C2D12", opacity: 0.05 },
+      ],
+      pyrolysisCore: [
+        { offset: "0%", colorHex: "#020617", opacity: 0.95 },
+        { offset: "100%", colorHex: "#1E293B", opacity: 0.72 },
+      ],
+    },
+  };
+
+  const wakeVortexNodes: WakeVortexNode[] = Array.from(
+    { length: 6 },
+    (_, idx) => {
+      const dist = haloLength * (0.58 + idx * 0.16);
+      const lateralSign = idx % 2 === 0 ? -1 : 1;
+      const lateral = lateralSign * (14 + idx * 5.5);
+      const vx = clamp(liftedOriginX + dist * cosT + lateral * sinT, 185, 622);
+      const vy = clamp(liftedOriginY - dist * sinT + lateral * cosT, 22, 358);
+      const radius = Number(
+        clamp(8 + idx * 2.6 + (isBurning ? 4 : 0), 6, 26).toFixed(1),
+      );
+      const rotationSpeed = Number(
+        (
+          baseFlame.flickerFrequencyHz *
+          lateralSign *
+          (0.9 + idx * 0.12)
+        ).toFixed(2),
+      );
+      const opacity =
+        !isBurning || baseFlame.flickerFrequencyHz === 0
+          ? 0
+          : Number(
+              clamp(
+                (0.22 +
+                  (simResult.effectiveVelocityCmS / 60) * 0.45 +
+                  (simResult.smokeSootIndex / 100) * 0.25) *
+                  (1 - idx * 0.1),
+                0.08,
+                0.85,
+              ).toFixed(2),
+            );
+
+      return {
+        x: Number(vx.toFixed(1)),
+        y: Number(vy.toFixed(1)),
+        radius,
+        rotationSpeed,
+        opacity,
+      };
+    },
+  );
+
+  const flameDynamics: AdvancedFlameDynamics = {
+    standoffDistancePx,
+    plumeTiltAngleDeg,
+    wakeVortexNodes,
+  };
+
+  const tiltRiseFactor = Math.sin(tiltRad);
+  const streamlines: FlowStreamlineVector[] = Array.from(
+    { length: 11 },
+    (_, index) => {
+      const offsetIndex = index - 5;
+      const y0 = anchorY + offsetIndex * 30;
+      const proximity = Math.exp(-(offsetIndex * offsetIndex) / 9);
+      const obstaclePush =
+        offsetIndex === 0
+          ? -28
+          : (offsetIndex < 0 ? -1 : 1) * 26 * proximity;
+      const wakeUpwardLift = isBurning
+        ? (58 + 70 * proximity) * tiltRiseFactor
+        : 28 * tiltRiseFactor;
+
+      const yApproach = clamp(y0 + obstaclePush * 0.4, 16, 364);
+      const yApex = clamp(
+        y0 + obstaclePush - wakeUpwardLift * 0.35,
+        16,
+        364,
+      );
+      const yExit = clamp(y0 - wakeUpwardLift, 16, 364);
+
+      const d = [
+        `M 20 ${y0.toFixed(1)}`,
+        `C 85 ${y0.toFixed(1)}, 125 ${yApproach.toFixed(1)}, 170 ${yApex.toFixed(1)}`,
+        `C 275 ${yApex.toFixed(1)}, 420 ${yExit.toFixed(1)}, 620 ${yExit.toFixed(1)}`,
+      ].join(" ");
+
+      const speedMultiplier = Number(
+        clamp(
+          (0.65 + simResult.effectiveVelocityCmS / 12) * (1 + 0.35 * proximity),
+          0.35,
+          6.5,
+        ).toFixed(2),
+      );
+      const dashLen = Math.round(clamp(5 + speedMultiplier * 2.5, 4, 18));
+      const gapLen = Math.round(clamp(8 - speedMultiplier * 0.6, 4, 9));
+
+      return {
+        id: `streamline-${index + 1}`,
+        d,
+        speedMultiplier,
+        strokeDasharray: `${dashLen} ${gapLen}`,
+        isIonDeflected:
+          simResult.electricFieldVoltsCm > 0 && Math.abs(offsetIndex) <= 3,
+      };
+    },
+  );
+
+  const radOriginX = 310;
+  const radOriginY = 40;
+  const fovCenterX = clamp(liftedOriginX + haloLength * 0.42 * cosT, 185, 440);
+  const fovLeftX = Math.round(fovCenterX - 95);
+  const fovRightX = Math.round(fovCenterX + 95);
+  const radiativeFluxKwM2 = !isBurning
+    ? 0
+    : isCoolFlame
+      ? Number(clamp(0.4 + simResult.o2Pct * 0.015, 0.3, 2.2).toFixed(2))
+      : Number(
+          clamp(
+            4.5 *
+              (simResult.adiabaticFlameTempK / 1500) ** 4 *
+              (0.45 + simResult.smokeSootIndex / 140),
+            1.2,
+            85,
+          ).toFixed(2),
+        );
+
+  const thermocoupleRake: ThermocoupleProbeTip[] = [0.22, 0.4, 0.6, 0.8, 0.96].map(
+    (frac) => {
+      const dist = haloLength * frac;
+      const px = clamp(liftedOriginX + dist * cosT, 178, 595);
+      const py = clamp(liftedOriginY - dist * sinT, 26, 352);
+      const falloff = Math.exp(-((frac - 0.32) ** 2) / 0.22);
+      const tempK = !isBurning
+        ? 295
+        : Math.round(295 + (simResult.adiabaticFlameTempK - 295) * falloff);
+      return {
+        x: Number(px.toFixed(1)),
+        y: Number(py.toFixed(1)),
+        tempK,
+        colorHex: thermocoupleColor(tempK),
+      };
+    },
+  );
+
+  let alarmState: AerosolLaserBeamOverlay["alarmState"] = "NOMINAL";
+  let meanParticleDiameterUm = 0.45;
+  let obscurationPct = 1.2;
+
+  if (
+    isBurning &&
+    (simResult.smokeSootIndex >= 22 || simResult.estimatedCO_ppm >= 120)
+  ) {
+    alarmState = "SMOKE_ALARM";
+    meanParticleDiameterUm = Number(
+      clamp(0.48 - (simResult.smokeSootIndex / 100) * 0.36, 0.08, 0.55).toFixed(
+        2,
+      ),
+    );
+    obscurationPct = Number(
+      clamp(12 + simResult.smokeSootIndex * 0.58, 8, 72).toFixed(1),
+    );
+  } else if (simResult.airflowCmS >= 18) {
+    alarmState = "DUST_DISCRIMINATED";
+    meanParticleDiameterUm = Number(
+      clamp(2.4 + (simResult.airflowCmS - 18) * 0.14, 2.2, 8.5).toFixed(2),
+    );
+    obscurationPct = Number(
+      clamp(4.5 + (simResult.airflowCmS - 18) * 0.26, 4.5, 16.5).toFixed(1),
+    );
+  } else if (isBurning) {
+    obscurationPct = Number(
+      clamp(2.5 + simResult.smokeSootIndex * 0.3, 2, 12).toFixed(1),
+    );
+    meanParticleDiameterUm = 0.35;
+  }
+
+  const chamberSensors: AdvancedChamberSensors = {
+    radiometer: {
+      x: radOriginX,
+      y: radOriginY,
+      fovPolygonPoints: `${radOriginX},${radOriginY} ${fovLeftX},228 ${fovRightX},228`,
+      radiativeFluxKwM2,
+    },
+    thermocoupleRake,
+    aerosolLaserBeam: {
+      x: 540,
+      y1: 30,
+      y2: 350,
+      obscurationPct,
+      meanParticleDiameterUm,
+      alarmState,
+    },
+  };
+
+  return {
+    viewportWidth,
+    viewportHeight,
+    anchorX,
+    anchorY,
+    isBurning,
+    isInsideOutBurner: baseFlame.isInsideOutBurner,
+    Zones: zones,
+    FlameDynamics: flameDynamics,
+    Streamlines: streamlines,
+    ChamberSensors: chamberSensors,
+    zones,
+    flameDynamics,
+    streamlines,
+    chamberSensors,
+  };
+}
+
+export function generateFlammabilityEnvelopeData(
+  currentParams: Partial<SimulationParams> = {},
+): FlammabilityEnvelopeData {
+  const base: SimulationParams = {
+    ...DEFAULT_PARAMS,
+    ...currentParams,
+  };
+
+  const o2VsPressureCurve: O2PressureCurvePoint[] = [];
+  for (let pressurePsi = 4; pressurePsi <= 15.0001; pressurePsi += 0.5) {
+    const atPressure = (gravityG: number, airflowCmS: number): number =>
+      simulateCombustionPhysics({
+        ...base,
+        pressurePsi,
+        gravityG,
+        airflowCmS,
+      }).limitingO2Pct;
+
+    o2VsPressureCurve.push({
+      pressurePsi: Number(pressurePsi.toFixed(1)),
+      loi_0g_ventilated: atPressure(0, 5),
+      loi_1g_earth: atPressure(1, 0),
+      loi_lunar_016g_bounded: atPressure(0.16, 0),
+      loi_mars_038g_bounded: atPressure(0.38, 0),
+    });
+  }
+
+  const o2VsAirflowCurve: O2AirflowCurvePoint[] = [];
+  for (let airflowCmS = 0; airflowCmS <= 50; airflowCmS += 2) {
+    const result = simulateCombustionPhysics({
+      ...base,
+      gravityG: 0,
+      electricFieldVoltsCm: 0,
+      airflowCmS,
+    });
+
+    o2VsAirflowCurve.push({
+      airflowCmS,
+      limitingO2Pct: result.limitingO2Pct,
+    });
+  }
+
+  const habitatScenarios = [
+    { name: "ISS", o2Pct: 21, pressurePsi: 14.7, gravityG: 0 },
+    {
+      name: "Lunar Base",
+      o2Pct: 34,
+      pressurePsi: 10.2,
+      gravityG: 0.16,
+    },
+    {
+      name: "Mars Habitat Reference",
+      o2Pct: 21,
+      pressurePsi: 10.2,
+      gravityG: 0.38,
+    },
+    {
+      name: "EVA Suit",
+      o2Pct: 100,
+      pressurePsi: 4.3,
+      gravityG: 0,
+    },
+    { name: "Earth", o2Pct: 21, pressurePsi: 14.7, gravityG: 1 },
+  ];
+
+  const habitatPins: HabitatPin[] = habitatScenarios.map((scenario) => {
+    const result = simulateCombustionPhysics({
+      ...base,
+      ...scenario,
+      airflowCmS: base.airflowCmS,
+    });
+
+    return {
+      ...scenario,
+      limitingO2Pct: result.limitingO2Pct,
+      ignitionLikely: result.oxygenMarginPct > 0,
+    };
+  });
+
+  return {
+    o2VsPressureCurve,
+    o2VsAirflowCurve,
+    habitatPins,
+  };
+}
+
+function heatmapColorForRisk(
+  riskLevel0to1: number,
+  regime: CombustionRegime,
+): string {
+  if (regime === "NO_IGNITION_QUENCHED") return "#0F172A";
+  if (regime === "NO_IGNITION_BLOWOFF") return "#1E293B";
+  if (regime === "COOL_FLAME_CFI_G") return "#4F46E5";
+  if (riskLevel0to1 < 0.25) return "#0E7490";
+  if (riskLevel0to1 < 0.5) return "#D97706";
+  if (riskLevel0to1 < 0.78) return "#EA580C";
+  return "#DC2626";
+}
+
+function classifyAirflowZone(airflowCmS: number): AirflowValleyZone {
+  if (airflowCmS < 2) return "Diffusive Quenching Wall (< 2 cm/s)";
+  if (airflowCmS <= 12) return "Microgravity Super-Flammability Trough (2–12 cm/s)";
+  if (airflowCmS <= 25) return "Transition Cooling Region (12–25 cm/s)";
+  return "Convective Blowoff Slope (> 25 cm/s)";
+}
+
+export function generateFlammabilityPhaseMatrix(
+  currentParams: SimulationParams,
+  empiricalRuns: readonly NormalizedRun[],
+): FlammabilityPhaseMatrix {
+  const base: SimulationParams = {
+    ...DEFAULT_PARAMS,
+    ...currentParams,
+  };
+  const matPhysics = MATERIAL_PHYSICS[
+    base.material in MATERIAL_PHYSICS ? base.material : DEFAULT_PARAMS.material
+  ];
+
+  const pressureO2HeatmapGrid: PressureO2HeatmapCell[][] = [];
+  for (let pIdx = 0; pIdx < 23; pIdx += 1) {
+    const pressurePsi = Number((4 + pIdx * 0.5).toFixed(1));
+    const rowCells: PressureO2HeatmapCell[] = [];
+    for (let oIdx = 0; oIdx < 19; oIdx += 1) {
+      const o2Pct = 10 + oIdx * 5;
+      const res = simulateCombustionPhysics({
+        ...base,
+        pressurePsi,
+        o2Pct,
+      });
+      const riskLevel0to1 = res.oxygenMarginPct <= 0
+        ? 0
+        : Number(
+            clamp(
+              0.2 +
+                (res.oxygenMarginPct / 45) * 0.45 +
+                (res.flameSpreadRateMmS / 22) * 0.35,
+              0.08,
+              1,
+            ).toFixed(3),
+          );
+      rowCells.push({
+        pressurePsi,
+        o2Pct,
+        oxygenMarginPct: res.oxygenMarginPct,
+        flameSpreadMmS: res.flameSpreadRateMmS,
+        regime: res.regime,
+        riskLevel0to1,
+        cellColorHex: heatmapColorForRisk(riskLevel0to1, res.regime),
+      });
+    }
+    pressureO2HeatmapGrid.push(rowCells);
+  }
+
+  const airflowO2HeatmapGrid: AirflowO2HeatmapCell[][] = [];
+  for (let aIdx = 0; aIdx < 26; aIdx += 1) {
+    const airflowCmS = aIdx * 2;
+    const zoneTag = classifyAirflowZone(airflowCmS);
+    const colCells: AirflowO2HeatmapCell[] = [];
+    for (let oIdx = 0; oIdx < 19; oIdx += 1) {
+      const o2Pct = 10 + oIdx * 5;
+      const res = simulateCombustionPhysics({
+        ...base,
+        gravityG: 0,
+        electricFieldVoltsCm: 0,
+        airflowCmS,
+        o2Pct,
+      });
+      const riskLevel0to1 = res.oxygenMarginPct <= 0
+        ? 0
+        : Number(
+            clamp(
+              0.2 +
+                (res.oxygenMarginPct / 45) * 0.45 +
+                (res.flameSpreadRateMmS / 22) * 0.35,
+              0.08,
+              1,
+            ).toFixed(3),
+          );
+      colCells.push({
+        airflowCmS,
+        o2Pct,
+        limitingO2Pct: res.limitingO2Pct,
+        oxygenMarginPct: res.oxygenMarginPct,
+        flameSpreadMmS: res.flameSpreadRateMmS,
+        regime: res.regime,
+        zoneTag,
+        riskLevel0to1,
+        cellColorHex: heatmapColorForRisk(riskLevel0to1, res.regime),
+      });
+    }
+    airflowO2HeatmapGrid.push(colCells);
+  }
+
+  const refFlow = simulateCombustionPhysics(base);
+  const spreadSlope =
+    (0.18 *
+      Math.sqrt(Math.max(0.35, refFlow.effectiveVelocityCmS)) *
+      matPhysics.spreadFactor) /
+    matPhysics.thicknessMm ** 0.65;
+
+  const computeIsoContourPoints = (targetMmS: number): IsoSpreadPoint[] => {
+    const points: IsoSpreadPoint[] = [];
+    const safeSlope = Math.max(0.05, spreadSlope);
+    for (let pIdx = 0; pIdx < 23; pIdx += 1) {
+      const pressurePsi = Number((4 + pIdx * 0.5).toFixed(1));
+      const atP = simulateCombustionPhysics({
+        ...base,
+        pressurePsi,
+      });
+      const targetO2 = clamp(
+        atP.limitingO2Pct + targetMmS / safeSlope,
+        10,
+        100,
+      );
+      points.push({
+        pressurePsi,
+        o2Pct: Number(targetO2.toFixed(2)),
+      });
+    }
+    return points;
+  };
+
+  const isoSpreadContours: IsoSpreadContourSet = {
+    slowCreep1MmS: {
+      label: "1 mm/s (Slow Creep)",
+      targetMmS: 1,
+      colorHex: "#38BDF8",
+      points: computeIsoContourPoints(1),
+    },
+    rapidCabin5MmS: {
+      label: "5 mm/s (Rapid Cabin Spread)",
+      targetMmS: 5,
+      colorHex: "#F59E0B",
+      points: computeIsoContourPoints(5),
+    },
+    flashoverEva15MmS: {
+      label: "15 mm/s (Flashover / EVA Danger)",
+      targetMmS: 15,
+      colorHex: "#EF4444",
+      points: computeIsoContourPoints(15),
+    },
+  };
+
+  const envelope = generateFlammabilityEnvelopeData(base);
+  const upper0gPoints: BoundingPolygonPoint[] =
+    envelope.o2VsPressureCurve.map((pt) => ({
+      x: pt.pressurePsi,
+      y: pt.loi_0g_ventilated,
+      pressurePsi: pt.pressurePsi,
+      o2Pct: pt.loi_0g_ventilated,
+    }));
+  const lower1gPoints: BoundingPolygonPoint[] =
+    [...envelope.o2VsPressureCurve].reverse().map((pt) => ({
+      x: pt.pressurePsi,
+      y: pt.loi_1g_earth,
+      pressurePsi: pt.pressurePsi,
+      o2Pct: pt.loi_1g_earth,
+    }));
+  const partialGravityBoundingPolygon: BoundingPolygonPoint[] = [
+    ...upper0gPoints,
+    ...lower1gPoints,
+  ];
+
+  const issRefSim = simulateCombustionPhysics({
+    ...base,
+    pressurePsi: 14.7,
+    o2Pct: 21,
+    gravityG: 0,
+  });
+  const issSpreadBaseline = Math.max(0.25, issRefSim.flameSpreadRateMmS);
+
+  const preBreatheTradeoffVector: PreBreatheWaypoint[] = Array.from(
+    { length: 12 },
+    (_, stepIndex) => {
+      let pressurePsi: number;
+      let o2Pct: number;
+      let gravityG: number;
+      let preBreatheTimeMinutes: number;
+      let label: string;
+
+      if (stepIndex <= 5) {
+        const t = stepIndex / 5;
+        pressurePsi = 14.7 + (10.2 - 14.7) * t;
+        o2Pct = 21 + (34 - 21) * t;
+        gravityG = 0 + 0.16 * t;
+        preBreatheTimeMinutes = Math.round(240 - 195 * t);
+        label =
+          stepIndex === 0
+            ? "ISS Nominal (14.7 psi / 21% O2)"
+            : stepIndex === 5
+              ? "Lunar Base / Rover (10.2 psi / 34% O2)"
+              : `Exploration Transition ${stepIndex}`;
+      } else {
+        const u = (stepIndex - 5) / 6;
+        pressurePsi = 10.2 + (4.3 - 10.2) * u;
+        o2Pct = 34 + (100 - 34) * u;
+        gravityG = 0.16 * (1 - u);
+        preBreatheTimeMinutes = Math.round(45 * (1 - u));
+        label =
+          stepIndex === 11
+            ? "EVA Spacesuit (4.3 psi / 100% O2)"
+            : `EVA Depressurization ${stepIndex - 5}`;
+      }
+
+      const sim = simulateCombustionPhysics({
+        ...base,
+        pressurePsi: Number(pressurePsi.toFixed(2)),
+        o2Pct: Number(o2Pct.toFixed(1)),
+        gravityG: Number(gravityG.toFixed(3)),
+      });
+
+      return {
+        stepIndex,
+        label,
+        pressurePsi: Number(pressurePsi.toFixed(2)),
+        o2Pct: Number(o2Pct.toFixed(1)),
+        gravityG: Number(gravityG.toFixed(3)),
+        preBreatheTimeMinutes,
+        flameSpreadMmS: sim.flameSpreadRateMmS,
+        riskMultiplierVsIss: Number(
+          (sim.flameSpreadRateMmS / issSpreadBaseline).toFixed(2),
+        ),
+      };
+    },
+  );
+
+  const empiricalTelemetryNodes: EmpiricalTelemetryNode[] = empiricalRuns.map(
+    (run, index) => {
+      const o2Pct = clamp(finiteOr(run.initialO2Pct, 21), 10, 100);
+      const pressurePsi = clamp(finiteOr(run.pressurePsi, 14.7), 4, 15);
+      const airflowCmS = clamp(
+        finiteOr(run.initialAirflowCmS, finiteOr(run.finalAirflowCmS, 5)),
+        0,
+        50,
+      );
+      const gravityG = clamp(finiteOr(run.gravityG, 0), 0, 1);
+
+      const lowerExp = run.experimentId.toUpperCase();
+      const lowerExt = `${run.extinctionStatus} ${run.extinctionMechanism}`.toLowerCase();
+
+      let outcomeCategory: EmpiricalTelemetryNode["outcomeCategory"] =
+        "IGNITED_SUSTAINED";
+      let nodeColorHex = "#EF4444";
+
+      if (lowerExp.startsWith("DAFT")) {
+        outcomeCategory = "DUST_DISCRIMINATION";
+        nodeColorHex = "#06B6D4";
+      } else if (lowerExp.startsWith("SAME")) {
+        outcomeCategory = "AEROSOL_SMOKE";
+        nodeColorHex = "#F59E0B";
+      } else if (lowerExt.includes("disruption")) {
+        outcomeCategory = "DISRUPTION";
+        nodeColorHex = "#A855F7";
+      } else if (
+        lowerExt.includes("extinction") ||
+        lowerExt.includes("quenching") ||
+        lowerExt.includes("blowoff") ||
+        lowerExt.includes("self-extinguish")
+      ) {
+        outcomeCategory = "EXTINCTION";
+        nodeColorHex = "#10B981";
+      }
+
+      const spreadTxt =
+        run.flameSpreadMmS !== null ? `${run.flameSpreadMmS} mm/s` : null;
+      const coTxt =
+        run.finalCOPpm !== null ? `CO ${run.finalCOPpm} ppm` : null;
+      const smokeTxt =
+        run.smokeParticleConc !== null
+          ? `Size ${run.smokeParticleConc} µm`
+          : null;
+      const durTxt =
+        run.burnDurationS !== null ? `${run.burnDurationS}s burn` : null;
+      const metricParts = [spreadTxt, coTxt, smokeTxt, durTxt].filter(Boolean);
+
+      return {
+        id: `${run.experimentId}-${run.testNumber}-${index}`,
+        experimentId: run.experimentId,
+        testNumber: run.testNumber,
+        o2Pct,
+        pressurePsi,
+        airflowCmS,
+        gravityG,
+        outcomeCategory,
+        nodeColorHex,
+        pulseRadius:
+          outcomeCategory === "IGNITED_SUSTAINED"
+            ? 5.5
+            : outcomeCategory === "DISRUPTION"
+              ? 5
+              : 4,
+        label: `${run.experimentId} • ${run.testNumber}`,
+        keyMetricText:
+          metricParts.length > 0
+            ? metricParts.join(" | ")
+            : run.extinctionStatus || run.extinctionMechanism,
+      };
+    },
+  );
+
+  return {
+    pressureO2HeatmapGrid,
+    airflowO2HeatmapGrid,
+    isoSpreadContours,
+    partialGravityBoundingPolygon,
+    preBreatheTradeoffVector,
+    empiricalTelemetryNodes,
+  };
+}
+
+export function findClosestEmpiricalRuns(
+  params: SimulationParams,
+  parsedRuns: readonly NormalizedRun[],
+  limit = 5,
+): EmpiricalRunMatch[] {
+  const safeLimit = Math.max(1, Math.floor(limit));
+
+  return parsedRuns
+    .map((run): EmpiricalRunMatch => {
+      const runO2 = finiteOr(run.initialO2Pct, 21);
+      const runAirflow = finiteOr(
+        run.initialAirflowCmS,
+        finiteOr(run.finalAirflowCmS, 5),
+      );
+      const runPressure = finiteOr(run.pressurePsi, 14.7);
+      const runGravity = finiteOr(run.gravityG, 0);
+
+      const score =
+        Math.abs(runO2 - params.o2Pct) * 1.8 +
+        Math.abs(runAirflow - params.airflowCmS) * 0.48 +
+        Math.abs(runPressure - params.pressurePsi) * 1.1 +
+        Math.abs(runGravity - params.gravityG) * 8 +
+        baseMaterialSimilarity(params.material, run.baseMaterial);
+
+      const coPpmJump =
+        run.initialCOPpm !== null && run.finalCOPpm !== null
+          ? run.finalCOPpm - run.initialCOPpm
+          : null;
+
+      return {
+        matchScore: Number(score.toFixed(2)),
+        pi: run.pi,
+        testNumber: run.testNumber,
+        fuelSampleMaterial: run.rawFuelMaterial,
+        airDisplay: run.airDisplay,
+        initialO2Pct: run.initialO2Pct,
+        finalO2Pct: run.finalO2Pct,
+        initialCOPpm: run.initialCOPpm,
+        finalCOPpm: run.finalCOPpm,
+        coPpmJump,
+        run,
+      };
+    })
+    .sort((left, right) => left.matchScore - right.matchScore)
+    .slice(0, safeLimit);
+}
