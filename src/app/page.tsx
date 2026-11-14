@@ -122,16 +122,17 @@ const SIMULATOR_MATERIALS: { value: SimulatorMaterial; label: string }[] = [
   { value: "PROPANE_CFI_G", label: "PROPANE_CFI_G (ACME-CFI-G Spherical Burner)" },
 ];
 
-function getProvenanceBadgeClasses(tier: DataProvenanceTier): string {
-  if (tier === "EMPIRICAL_CSV_LOADED") {
-    return "border-emerald-500 bg-emerald-100 text-emerald-900";
-  }
-  if (tier === "PHYSICS_AND_METADATA_MODEL") {
-    return "border-cyan-500 bg-cyan-100 text-cyan-900";
-  }
-  return "border-amber-500 bg-amber-100 text-amber-900";
-}
+// constant provenance badge style lookup dictionary instead of an if/else ladder.
+const PROVENANCE_BADGE_CLASSES: Record<DataProvenanceTier, string> = {
+  EMPIRICAL_CSV_LOADED: "border-emerald-500 bg-emerald-100 text-emerald-900",
+  PHYSICS_AND_METADATA_MODEL: "border-cyan-500 bg-cyan-100 text-cyan-900",
+  FUTURE_LUNAR_FLIGHT: "border-amber-500 bg-amber-100 text-amber-900",
+};
 
+const getProvenanceBadgeClasses = (tier: DataProvenanceTier): string =>
+  PROVENANCE_BADGE_CLASSES[tier];
+
+// main 7-section APULA workstation connecting habitat sliders to the 60fps physics solver, 3D flame chamber, and 654 NASA PSI records.
 export default function ApulaWireframePage() {
 
   const [params, setParams] = useState<SimulationParams>({

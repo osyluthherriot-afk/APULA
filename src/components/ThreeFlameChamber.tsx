@@ -1,3 +1,4 @@
+// 60fps Three.js microgravity wind-tunnel chamber with additive-blended morphing sphere-to-teardrop flame meshes.
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -24,52 +25,70 @@ interface OrbitState {
   distance: number;
 }
 
+// nuked the 5-branch morphology badge if-chain into a declarative rule table so the HUD header stays clean.
+const MORPHOLOGY_BADGE_RULES: readonly {
+  match: (sim: CombustionSimulationResult, geo: FlameRenderGeometry) => boolean;
+  modeLabel: string;
+  badgeColorClass: string;
+}[] = [
+  {
+    match: (sim) => sim.regime === "NO_IGNITION_QUENCHED",
+    modeLabel: "DIFFUSIVE QUENCHED (NO IGNITION)",
+    badgeColorClass: "border-slate-500 bg-slate-900/90 text-slate-300",
+  },
+  {
+    match: (sim) => sim.regime === "NO_IGNITION_BLOWOFF",
+    modeLabel: "CONVECTIVE BLOWOFF (NO IGNITION)",
+    badgeColorClass: "border-rose-500/70 bg-rose-950/90 text-rose-200",
+  },
+  {
+    match: (sim, geo) => geo.isInsideOutBurner || sim.regime === "COOL_FLAME_CFI_G",
+    modeLabel: "INSIDE-OUT COOL FLAME SPHERE (CFI-G)",
+    badgeColorClass: "border-indigo-400/80 bg-indigo-950/90 text-indigo-200",
+  },
+  {
+    match: (sim) => sim.gravityG < 0.05 && sim.airflowCmS < 2.5,
+    modeLabel: "SPHERICAL DIFFUSION (0g)",
+    badgeColorClass: "border-cyan-400/80 bg-cyan-950/90 text-cyan-200",
+  },
+  {
+    match: (sim) => sim.gravityG >= 0.85,
+    modeLabel: "BUOYANT TEARDROP (1g)",
+    badgeColorClass: "border-amber-400/80 bg-amber-950/90 text-amber-200",
+  },
+];
+
 function getMorphologyBadgeText(
   simResult: CombustionSimulationResult,
   flameGeometry: FlameRenderGeometry,
-): {
-  modeLabel: string;
-  badgeColorClass: string;
-} {
-  if (simResult.regime === "NO_IGNITION_QUENCHED") {
-    return {
-      modeLabel: "DIFFUSIVE QUENCHED (NO IGNITION)",
-      badgeColorClass: "border-slate-500 bg-slate-900/90 text-slate-300",
-    };
-  }
-  if (simResult.regime === "NO_IGNITION_BLOWOFF") {
-    return {
-      modeLabel: "CONVECTIVE BLOWOFF (NO IGNITION)",
-      badgeColorClass: "border-rose-500/70 bg-rose-950/90 text-rose-200",
-    };
-  }
-  if (
-    flameGeometry.isInsideOutBurner ||
-    simResult.regime === "COOL_FLAME_CFI_G"
-  ) {
-    return {
-      modeLabel: "INSIDE-OUT COOL FLAME SPHERE (CFI-G)",
-      badgeColorClass: "border-indigo-400/80 bg-indigo-950/90 text-indigo-200",
-    };
-  }
-  if (simResult.gravityG < 0.05 && simResult.airflowCmS < 2.5) {
-    return {
-      modeLabel: "SPHERICAL DIFFUSION (0g)",
-      badgeColorClass: "border-cyan-400/80 bg-cyan-950/90 text-cyan-200",
-    };
-  }
-  if (simResult.gravityG >= 0.85) {
-    return {
-      modeLabel: "BUOYANT TEARDROP (1g)",
-      badgeColorClass: "border-amber-400/80 bg-amber-950/90 text-amber-200",
-    };
-  }
-  return {
-    modeLabel: "PARTIAL-G / FORCED-FLOW PLUME",
-    badgeColorClass: "border-sky-400/80 bg-sky-950/90 text-sky-200",
-  };
+): { modeLabel: string; badgeColorClass: string } {
+  return (
+    MORPHOLOGY_BADGE_RULES.find((rule) => rule.match(simResult, flameGeometry)) ?? {
+      modeLabel: "PARTIAL-G / FORCED-FLOW PLUME",
+      badgeColorClass: "border-sky-400/80 bg-sky-950/90 text-sky-200",
+    }
+  );
 }
 
+const LASER_ALARM_COLORS: Record<
+  AdvancedFlameField["chamberSensors"]["aerosolLaserBeam"]["alarmState"],
+  string
+> = {
+  SMOKE_ALARM: "#EF4444",
+  DUST_DISCRIMINATED: "#F59E0B",
+  NOMINAL: "#10B981",
+};
+
+const LASER_BADGE_CLASSES: Record<
+  AdvancedFlameField["chamberSensors"]["aerosolLaserBeam"]["alarmState"],
+  string
+> = {
+  SMOKE_ALARM: "border-rose-500/80 bg-rose-950/90 text-rose-200",
+  DUST_DISCRIMINATED: "border-amber-500/80 bg-amber-950/90 text-amber-200",
+  NOMINAL: "border-emerald-500/80 bg-emerald-950/90 text-emerald-200",
+};
+
+// stretches the 3D sphere into a teardrop when gravity or airflow shows up, don't touch the aspect ratio math unless you want cursed geometry.
 function deformFlameSphereGeometry(
   geometry: THREE.SphereGeometry,
   basePositions: Float32Array,
@@ -522,14 +541,9 @@ export default function ThreeFlameChamber({
       probesGroup.visible = curProbes;
 
       const alarmState = curField.chamberSensors.aerosolLaserBeam.alarmState;
-      laserMat.color.set(
-        alarmState === "SMOKE_ALARM"
-          ? "#EF4444"
-          : alarmState === "DUST_DISCRIMINATED"
-            ? "#F59E0B"
-            : "#10B981",
-      );
+      laserMat.color.set(LASER_ALARM_COLORS[alarmState]);
 
+      // tilts and lifts the 3D flame group by atan2(buoyant+ion, fan) and standoffDistancePx so blowoff liftoff is physically visible.
       const tiltRad =
         (curField.flameDynamics.plumeTiltAngleDeg * Math.PI) / 180;
       const standoffWorld =
@@ -541,51 +555,69 @@ export default function ThreeFlameChamber({
         0,
       );
 
-      if (!isBurning) {
-        coreMat.opacity = 0.05;
-        sootMat.opacity = 0;
-        outerMat.opacity = 0.12;
-        outerMat.color.set("#475569");
-        flamePointLight.intensity = 0.25;
-      } else if (isCoolFlame) {
-        coreMat.color.set("#C7D2FE");
-        coreMat.opacity = 0.72;
-        sootMat.opacity = 0.14;
-        sootMat.color.set("#6366F1");
-        outerMat.color.set("#818CF8");
-        outerMat.opacity = 0.42;
-        flamePointLight.color.set("#818CF8");
-        flamePointLight.intensity = 2.4;
-      } else if (isSpherical) {
-        coreMat.color.set("#00E5FF");
-        coreMat.opacity = 0.78;
-        sootMat.opacity = 0;
-        outerMat.color.set("#38BDF8");
-        outerMat.opacity = 0.42;
-        flamePointLight.color.set("#00E5FF");
-        flamePointLight.intensity = 2.9;
-      } else {
-        coreMat.color.set("#E0F2FE");
-        coreMat.opacity = 0.85;
-        const sootStrength = Math.min(
-          0.78,
-          Math.max(
-            0.18,
-            curGeo.sootTailOpacity * 0.85 +
-              (curSim.gravityG > 0.05 ? 0.22 : 0),
-          ),
-        );
-        sootMat.color.set(
-          curSim.regime === "CRITICAL_ACCELERATED_BURN" ? "#FEF08A" : "#FF7A00",
-        );
-        sootMat.opacity = sootStrength;
-        outerMat.color.set("#00E5FF");
-        outerMat.opacity = 0.34;
-        flamePointLight.color.set("#FF9E44");
-        flamePointLight.intensity =
-          2.6 +
-          0.45 * Math.sin(elapsedSec * Math.max(2, curGeo.flickerFrequencyHz * 5));
-      }
+      // declarative 3D shader state table so we don't nest four else-ifs inside the 60fps loop.
+      const sootStrength = Math.min(
+        0.78,
+        Math.max(
+          0.18,
+          curGeo.sootTailOpacity * 0.85 + (curSim.gravityG > 0.05 ? 0.22 : 0),
+        ),
+      );
+      const shaderPresets = [
+        {
+          match: !isBurning,
+          coreHex: "#E0F2FE",
+          coreOp: 0.05,
+          sootHex: "#FF7A00",
+          sootOp: 0,
+          outerHex: "#475569",
+          outerOp: 0.12,
+          lightHex: "#38BDF8",
+          lightInt: 0.25,
+        },
+        {
+          match: isCoolFlame,
+          coreHex: "#C7D2FE",
+          coreOp: 0.72,
+          sootHex: "#6366F1",
+          sootOp: 0.14,
+          outerHex: "#818CF8",
+          outerOp: 0.42,
+          lightHex: "#818CF8",
+          lightInt: 2.4,
+        },
+        {
+          match: isSpherical,
+          coreHex: "#00E5FF",
+          coreOp: 0.78,
+          sootHex: "#FF7A00",
+          sootOp: 0,
+          outerHex: "#38BDF8",
+          outerOp: 0.42,
+          lightHex: "#00E5FF",
+          lightInt: 2.9,
+        },
+      ];
+      const activeShader = shaderPresets.find((p) => p.match) ?? {
+        coreHex: "#E0F2FE",
+        coreOp: 0.85,
+        sootHex: curSim.regime === "CRITICAL_ACCELERATED_BURN" ? "#FEF08A" : "#FF7A00",
+        sootOp: sootStrength,
+        outerHex: "#00E5FF",
+        outerOp: 0.34,
+        lightHex: "#FF9E44",
+        lightInt:
+          2.6 + 0.45 * Math.sin(elapsedSec * Math.max(2, curGeo.flickerFrequencyHz * 5)),
+      };
+
+      coreMat.color.set(activeShader.coreHex);
+      coreMat.opacity = activeShader.coreOp;
+      sootMat.color.set(activeShader.sootHex);
+      sootMat.opacity = activeShader.sootOp;
+      outerMat.color.set(activeShader.outerHex);
+      outerMat.opacity = activeShader.outerOp;
+      flamePointLight.color.set(activeShader.lightHex);
+      flamePointLight.intensity = activeShader.lightInt;
 
       const radiusScale = Math.min(
         1.15,
@@ -980,13 +1012,7 @@ export default function ThreeFlameChamber({
           </div>
 
           <div
-            className={`border px-2.5 py-0.5 font-bold ${
-              laserSensor.alarmState === "SMOKE_ALARM"
-                ? "border-rose-500/80 bg-rose-950/90 text-rose-200"
-                : laserSensor.alarmState === "DUST_DISCRIMINATED"
-                  ? "border-amber-500/80 bg-amber-950/90 text-amber-200"
-                  : "border-emerald-500/80 bg-emerald-950/90 text-emerald-200"
-            }`}
+            className={`border px-2.5 py-0.5 font-bold ${LASER_BADGE_CLASSES[laserSensor.alarmState]}`}
           >
             PIMS/DAFT LASER: {laserSensor.alarmState} (
             {laserSensor.meanParticleDiameterUm} µm •{" "}

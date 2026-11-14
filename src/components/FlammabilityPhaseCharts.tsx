@@ -1,3 +1,4 @@
+// zoomable 3A & 3B flammability phase charts with 12-38% O2 boundary focus mode, smooth thermal gradients, and clustered telemetry pins.
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -25,6 +26,18 @@ interface BinnedTelemetryCluster {
   sampleMetric: string;
 }
 
+// lookup dictionary for habitat callout leader-line offsets so ISS (0g) and Earth (1g) never collide at (14.7 psi, 21% O2).
+const HABITAT_CALLOUT_OFFSETS: Record<
+  string,
+  { dx: number; dy: number; anchor: "start" | "end" }
+> = {
+  ISS: { dx: -18, dy: -18, anchor: "end" },
+  Earth: { dx: -18, dy: 20, anchor: "end" },
+  "Lunar Base": { dx: -14, dy: -12, anchor: "end" },
+  "Mars Habitat Reference": { dx: -14, dy: 16, anchor: "end" },
+};
+
+// bins 654 raw NASA flight telemetry pins into rounded coordinate clusters so the boundary curves don't get buried under dot spam.
 function buildBinnedClusters(
   nodes: readonly EmpiricalTelemetryNode[],
   mode: "pressure" | "airflow",
@@ -255,39 +268,23 @@ export default function FlammabilityPhaseCharts({
     );
   }, [envelopeData.o2VsAirflowCurve]);
 
+  // applies the constant offset dictionary to every habitat pin so zero else-if branches are needed.
   const habitatCallouts3A = useMemo(() => {
     return envelopeData.habitatPins.map((pin) => {
       const cx = mapPressureX(pin.pressurePsi);
       const cy = mapO2Y(pin.o2Pct);
-      let labelX = cx + 8;
-      let labelY = cy - 6;
-      let anchor: "start" | "end" = "start";
-
-      if (pin.name === "ISS") {
-        labelX = cx - 18;
-        labelY = cy - 18;
-        anchor = "end";
-      } else if (pin.name === "Earth") {
-        labelX = cx - 18;
-        labelY = cy + 20;
-        anchor = "end";
-      } else if (pin.name === "Lunar Base") {
-        labelX = cx - 14;
-        labelY = cy - 12;
-        anchor = "end";
-      } else if (pin.name === "Mars Habitat Reference") {
-        labelX = cx - 14;
-        labelY = cy + 16;
-        anchor = "end";
-      }
-
+      const offset = HABITAT_CALLOUT_OFFSETS[pin.name] ?? {
+        dx: 8,
+        dy: -6,
+        anchor: "start" as const,
+      };
       return {
         ...pin,
         cx,
         cy,
-        labelX,
-        labelY,
-        anchor,
+        labelX: cx + offset.dx,
+        labelY: cy + offset.dy,
+        anchor: offset.anchor,
       };
     });
   }, [envelopeData.habitatPins, zoomMode]);

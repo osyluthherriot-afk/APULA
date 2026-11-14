@@ -1,3 +1,4 @@
+// 654 real NASA PSI flight test rows across 8 campaigns stuffed into one raw CSV string so nobody ever has to upload a file manually.
 export const MASTER_PSI_CSV = `experiment_id,fuel_material_type,o2_concentration,pressure,temperature,airflow,gravity_level,ignition_status,burn_duration,flame_temperature,flame_spread,extinction_status,co,co2,smoke_particle_conc
 FLEX-20CAL08,Methanol,21,101.02,,,Microgravity (ISS),Ignited,4.3,,0.52,Disruption,,0,
 FLEX-20CAL10,Methanol,21,101.59,,,Microgravity (ISS),Ignited,5,,0.6,Extinction,,0,

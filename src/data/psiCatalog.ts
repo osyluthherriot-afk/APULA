@@ -1,9 +1,10 @@
+// catalog of all 13 NASA PSI fire safety investigations + relevance ranker with zero else-if bloat.
 import {
   type NormalizedRun,
   type SimulationParams,
   loadMasterPsiDataset,
 } from "@/lib/combustionPhysicsEngine";
-import { MASTER_PSI_CSV } from "../../datum/masterPsiData";
+import { MASTER_PSI_CSV } from "./masterPsiData";
 
 export { MASTER_PSI_CSV };
 
@@ -587,147 +588,119 @@ export const PSI_INVESTIGATIONS: PsiInvestigation[] = [
   },
 ];
 
+// ordered prefix lookup table so FLEX-20CAL08 doesn't get misclassified as FLEX-2 when counting loaded rows.
+const CAMPAIGN_PREFIX_LOOKUP: readonly { regex: RegExp; id: string }[] = [
+  { regex: /^BASS-?II(?=[-:_\s]|$)/, id: "BASS-II" },
+  { regex: /^BASS(?=[-:_\s]|$)/, id: "BASS" },
+  { regex: /^SAFFIRE-?3(?=[-:_\s]|$)/, id: "SAFFIRE-3" },
+  { regex: /^FLEX-?2(?=[-:_\s]|$)/, id: "FLEX-2" },
+  { regex: /^FLEX(?=[-:_\s]|$)/, id: "FLEX" },
+  { regex: /^SAME-?R(?=[-:_\s]|$)/, id: "SAME-R" },
+  { regex: /^SAME(?=[-:_\s]|$)/, id: "SAME" },
+  { regex: /^DAFT(?:-?2)?(?=[-:_\s]|$)/, id: "DAFT" },
+];
+
 export function getRunCampaignId(run: NormalizedRun): string {
   const upper = run.experimentId.trim().toUpperCase();
-
-  if (/^BASS-?II(?=[-:_\s]|$)/.test(upper)) return "BASS-II";
-  if (/^BASS(?=[-:_\s]|$)/.test(upper)) return "BASS";
-  if (/^SAFFIRE-?3(?=[-:_\s]|$)/.test(upper)) return "SAFFIRE-3";
-  if (/^FLEX-?2(?=[-:_\s]|$)/.test(upper)) return "FLEX-2";
-  if (/^FLEX(?=[-:_\s]|$)/.test(upper)) return "FLEX";
-  if (/^SAME-?R(?=[-:_\s]|$)/.test(upper)) return "SAME-R";
-  if (/^SAME(?=[-:_\s]|$)/.test(upper)) return "SAME";
-  if (/^DAFT(?:-?2)?(?=[-:_\s]|$)/.test(upper)) return "DAFT";
-
+  const matched = CAMPAIGN_PREFIX_LOOKUP.find((entry) => entry.regex.test(upper));
+  if (matched) return matched.id;
   const colonIdx = upper.indexOf(":");
-  if (colonIdx > 0) {
-    return upper.slice(0, colonIdx).trim();
-  }
-
-  return "BASS-II";
+  return colonIdx > 0 ? upper.slice(0, colonIdx).trim() : "BASS-II";
 }
 
-function rangeDistance(value: number, [min, max]: [number, number]): number {
-  if (value < min) return min - value;
-  if (value > max) return value - max;
-  return 0;
-}
+const rangeDistance = (value: number, [min, max]: [number, number]): number =>
+  Math.max(0, min - value, value - max);
 
-function parseTargetGravity(gravityRegime: string): number {
-  if (gravityRegime.includes("0.16g")) return 0.16;
-  if (gravityRegime.includes("0.38g")) return 0.38;
-  return 0;
-}
+const GRAVITY_REGIME_TARGETS: readonly { token: string; g: number }[] = [
+  { token: "0.16g", g: 0.16 },
+  { token: "0.38g", g: 0.38 },
+];
 
+const parseTargetGravity = (gravityRegime: string): number =>
+  GRAVITY_REGIME_TARGETS.find((entry) => gravityRegime.includes(entry.token))?.g ?? 0;
+
+// declarative bonus rules for the investigation ranker so we don't stack 60 lines of if-statements per study.
+const INVESTIGATION_BONUS_RULES: readonly {
+  match: (inv: PsiInvestigation, p: SimulationParams) => boolean;
+  deltaPenalty: number;
+  reason: (inv: PsiInvestigation, p: SimulationParams) => string;
+}[] = [
+  {
+    match: (inv, p) => inv.id === "ACME-E-FIELD" && p.electricFieldVoltsCm > 0,
+    deltaPenalty: -18,
+    reason: (_, p) => `Active E-field (${p.electricFieldVoltsCm} V/cm) matches ion-wind buoyancy model`,
+  },
+  {
+    match: (inv, p) =>
+      inv.id === "ACME-CFI-G" && (p.material === "PROPANE_CFI_G" || p.o2Pct >= 45),
+    deltaPenalty: -20,
+    reason: () => "High-O2 / Propane inside-out spherical burner regime",
+  },
+  {
+    match: (inv, p) =>
+      (inv.id === "FLEX" || inv.id === "FLEX-2") && p.material === "HEPTANE_DROPLET",
+    deltaPenalty: -18,
+    reason: () => "Liquid heptane droplet fuel matches MDCA runs",
+  },
+  {
+    match: (inv, p) =>
+      (inv.id === "BASS-II" || inv.id === "BASS" || inv.id === "SAFFIRE-3") &&
+      (p.material.startsWith("PMMA") || p.material === "SIBAL_FABRIC" || p.material === "NOMEX"),
+    deltaPenalty: -10,
+    reason: (inv, p) => `Solid fuel (${p.material}) tested in ${inv.id}`,
+  },
+  {
+    match: (inv, p) => (inv.id === "LUCI" || inv.id === "FM2") && Math.abs(p.gravityG - 0.16) <= 0.08,
+    deltaPenalty: -15,
+    reason: () => "Lunar partial-gravity (0.16g) target regime",
+  },
+  {
+    match: (inv, p) => inv.id === "ACME-BRE" && p.airflowCmS <= 3,
+    deltaPenalty: -10,
+    reason: () => "Low-flow still-air solid emulation regime",
+  },
+];
+
+// scores all 13 NASA investigations from 0-100 against the active habitat sliders and attaches live CSV row counts.
 export function rankPsiInvestigations(
   params: SimulationParams,
   pillarFilter: string,
   loadedRuns: readonly NormalizedRun[] = [],
 ): RankedPsiInvestigation[] {
   const normalizedFilter = pillarFilter.trim().toLowerCase();
-
   const rowCountsByCampaign = new Map<string, number>();
   for (const run of loadedRuns) {
     const campaignId = getRunCampaignId(run);
-    rowCountsByCampaign.set(
-      campaignId,
-      (rowCountsByCampaign.get(campaignId) ?? 0) + 1,
-    );
+    rowCountsByCampaign.set(campaignId, (rowCountsByCampaign.get(campaignId) ?? 0) + 1);
   }
 
-  return PSI_INVESTIGATIONS.filter((inv) => {
-    if (!normalizedFilter || normalizedFilter === "all") return true;
-    return inv.pillar.toLowerCase() === normalizedFilter;
-  })
+  return PSI_INVESTIGATIONS.filter(
+    (inv) => !normalizedFilter || normalizedFilter === "all" || inv.pillar.toLowerCase() === normalizedFilter,
+  )
     .map((inv): RankedPsiInvestigation => {
       const o2Dist = rangeDistance(params.o2Pct, inv.o2RangePct);
-      const pressureDist = rangeDistance(
-        params.pressurePsi,
-        inv.pressureRangePsi,
-      );
-      const airflowDist = rangeDistance(
-        params.airflowCmS,
-        inv.airflowRangeCmS,
-      );
-      const targetG = parseTargetGravity(inv.gravityRegime);
-      const gravityDist = Math.abs(params.gravityG - targetG);
+      const pressureDist = rangeDistance(params.pressurePsi, inv.pressureRangePsi);
+      const airflowDist = rangeDistance(params.airflowCmS, inv.airflowRangeCmS);
+      const gravityDist = Math.abs(params.gravityG - parseTargetGravity(inv.gravityRegime));
 
-      let penalty =
-        o2Dist * 1.45 +
-        pressureDist * 2.8 +
-        airflowDist * 0.75 +
-        gravityDist * 38;
+      let penalty = o2Dist * 1.45 + pressureDist * 2.8 + airflowDist * 0.75 + gravityDist * 38;
+      const reasons: string[] = [
+        o2Dist === 0
+          ? `O2 (${params.o2Pct}%) inside [${inv.o2RangePct[0]}–${inv.o2RangePct[1]}%]`
+          : `ΔO2 ${o2Dist.toFixed(1)}% from envelope`,
+        ...(pressureDist === 0
+          ? [`P (${params.pressurePsi} psi) in [${inv.pressureRangePsi[0]}–${inv.pressureRangePsi[1]} psi]`]
+          : []),
+        ...(airflowDist === 0
+          ? [`Flow (${params.airflowCmS} cm/s) in [${inv.airflowRangeCmS[0]}–${inv.airflowRangeCmS[1]} cm/s]`]
+          : []),
+      ];
 
-      const reasons: string[] = [];
-
-      if (o2Dist === 0) {
-        reasons.push(
-          `O2 (${params.o2Pct}%) inside [${inv.o2RangePct[0]}–${inv.o2RangePct[1]}%]`,
-        );
-      } else {
-        reasons.push(`ΔO2 ${o2Dist.toFixed(1)}% from envelope`);
-      }
-
-      if (pressureDist === 0) {
-        reasons.push(
-          `P (${params.pressurePsi} psi) in [${inv.pressureRangePsi[0]}–${inv.pressureRangePsi[1]} psi]`,
-        );
-      }
-
-      if (airflowDist === 0) {
-        reasons.push(
-          `Flow (${params.airflowCmS} cm/s) in [${inv.airflowRangeCmS[0]}–${inv.airflowRangeCmS[1]} cm/s]`,
-        );
-      }
-
-      if (inv.id === "ACME-E-FIELD" && params.electricFieldVoltsCm > 0) {
-        penalty -= 18;
-        reasons.push(
-          `Active E-field (${params.electricFieldVoltsCm} V/cm) matches ion-wind buoyancy model`,
-        );
-      }
-
-      if (
-        inv.id === "ACME-CFI-G" &&
-        (params.material === "PROPANE_CFI_G" || params.o2Pct >= 45)
-      ) {
-        penalty -= 20;
-        reasons.push(
-          "High-O2 / Propane inside-out spherical burner regime",
-        );
-      }
-
-      if (
-        (inv.id === "FLEX" || inv.id === "FLEX-2") &&
-        params.material === "HEPTANE_DROPLET"
-      ) {
-        penalty -= 18;
-        reasons.push("Liquid heptane droplet fuel matches MDCA runs");
-      }
-
-      if (
-        (inv.id === "BASS-II" ||
-          inv.id === "BASS" ||
-          inv.id === "SAFFIRE-3") &&
-        (params.material.startsWith("PMMA") ||
-          params.material === "SIBAL_FABRIC" ||
-          params.material === "NOMEX")
-      ) {
-        penalty -= 10;
-        reasons.push(`Solid fuel (${params.material}) tested in ${inv.id}`);
-      }
-
-      if (
-        (inv.id === "LUCI" || inv.id === "FM2") &&
-        Math.abs(params.gravityG - 0.16) <= 0.08
-      ) {
-        penalty -= 15;
-        reasons.push("Lunar partial-gravity (0.16g) target regime");
-      }
-
-      if (inv.id === "ACME-BRE" && params.airflowCmS <= 3) {
-        penalty -= 10;
-        reasons.push("Low-flow still-air solid emulation regime");
+      for (const rule of INVESTIGATION_BONUS_RULES) {
+        if (rule.match(inv, params)) {
+          penalty += rule.deltaPenalty;
+          reasons.push(rule.reason(inv, params));
+        }
       }
 
       const score = Math.max(0, Math.min(100, Math.round(100 - penalty)));
@@ -745,6 +718,7 @@ export function rankPsiInvestigations(
     .sort((a, b) => b.score - a.score);
 }
 
+// pre-parses all 654 flight rows at module load so the dashboard boots instantly with zero upload lag.
 export const LOADED_MASTER_PSI_RUNS: NormalizedRun[] =
   loadMasterPsiDataset(MASTER_PSI_CSV);
 
