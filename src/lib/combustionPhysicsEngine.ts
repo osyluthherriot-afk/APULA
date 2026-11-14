@@ -1,4 +1,4 @@
-// core physics engine + NASA PSI telemetry normalizer with all the 40-line else-if ladders cremated into lookup tables.
+// does all the heavy math, parses the CSV, and spits out flame shapes or whatever the f*** so the UI doesn't lag.
 
 export type SimulatorMaterial =
   | "PMMA_FILM_0.1MM"
@@ -373,7 +373,7 @@ interface MaterialPhysics {
   sootFactor: number;
 }
 
-// nuked the 40-line material else-if monstrosity into a constant Record lookup because nobody has time to scroll through that garbage.
+// shoves all 6 spacecraft fuel presets into one flat lookup table so we never have to touch a 40-line else-if ladder again.
 export const MATERIAL_PHYSICS: Record<SimulatorMaterial, MaterialPhysics> = {
   "PMMA_FILM_0.1MM": { thicknessMm: 0.1, baseLoiPct: 14.5, spreadFactor: 1.0, sootFactor: 0.55 },
   PMMA_SLAB_3MM: { thicknessMm: 3.0, baseLoiPct: 16.2, spreadFactor: 0.48, sootFactor: 0.86 },
@@ -383,7 +383,7 @@ export const MATERIAL_PHYSICS: Record<SimulatorMaterial, MaterialPhysics> = {
   PROPANE_CFI_G: { thicknessMm: 1.0, baseLoiPct: 11.8, spreadFactor: 0.7, sootFactor: 0.25 },
 };
 
-// direct lookup from simulator preset key to canonical fuel family so we don't chain string prefix checks like cavemen.
+// grabs the canonical fuel family directly from the simulator preset key without poking string prefixes.
 const SIMULATOR_TO_BASE_MATERIAL: Record<SimulatorMaterial, BaseMaterial> = {
   "PMMA_FILM_0.1MM": "PMMA",
   PMMA_SLAB_3MM: "PMMA",
@@ -403,7 +403,7 @@ export const DEFAULT_PARAMS: SimulationParams = {
   co2DilutionPct: 0,
 };
 
-// clamps wild slider inputs and finite-checks NaNs so 0% O2 or 0 cm/s doesn't blow a hole in the browser tab.
+// shoves slider inputs into safe bounds before the exponents react and somebody divides by zero during the live pitch.
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
@@ -418,7 +418,7 @@ function parseNumber(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-// converts kPa (>25) and atm (<=3.5) to psi because NASA couldn't pick one pressure unit across 8 campaigns and neither could we.
+// NASA mixed kPa, atm, and psi across 8 campaigns, so this grabs the raw pressure and forces everything into psi.
 const PRESSURE_UNIT_FACTORS: readonly { match: (p: number) => boolean; factor: number }[] = [
   { match: (p) => p > 25, factor: 0.145038 },
   { match: (p) => p <= 3.5, factor: 14.6959 },
@@ -430,13 +430,13 @@ function normalizePressurePsi(rawPressure: number | null, fallback: number | nul
   return Number((rawPressure * scale).toFixed(2));
 }
 
-// turns Flex2 fractional O2 (0.17) into actual percentages (17%) so the parser stops thinking astronauts breathe 0.21% oxygen.
+// snatches Flex-2 fractional O2 (0.17) and shoves it up to 17% before the math freaks out thinking astronauts breathe 0.21% air.
 function normalizeO2Concentration(rawO2: number | null): number | null {
   if (rawO2 === null || !Number.isFinite(rawO2) || rawO2 <= 0) return rawO2;
   return rawO2 <= 1 ? Number((rawO2 * 100).toFixed(2)) : rawO2;
 }
 
-// declarative gravity string matcher so "Microgravity (ISS)" maps to 0g without four stacked if statements.
+// pokes the raw gravity label and grabs 0g, 0.16g, 0.38g, or 1g without touching four stacked if statements.
 const GRAVITY_KEYWORD_LOOKUP: readonly { regex: RegExp; g: number }[] = [
   { regex: /microgravity|iss|\b0g\b/i, g: 0 },
   { regex: /lunar|moon/i, g: 0.16 },
@@ -451,7 +451,7 @@ function parseGravityG(rawGravity: string): number | null {
   return hit ? hit.g : parseNumber(trimmed);
 }
 
-// ordered boundary regex table so FLEX-20CAL08 stays in FLEX instead of getting hijacked by FLEX-2.
+// chokes prefix collisions with regex lookaheads so FLEX-20CAL08 stays in FLEX and never gets snatched by FLEX-2.
 const CAMPAIGN_ID_PATTERNS: readonly { regex: RegExp; canonicalId: string }[] = [
   { regex: /^BASS-?II(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "BASS-II" },
   { regex: /^BASS(?=[-:_\s]|$)(?:[-:_\s]+(.*))?$/i, canonicalId: "BASS" },
@@ -487,7 +487,7 @@ function splitCampaignAndTestId(
 const canonicalHeader = (header: string): string =>
   header.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-// quote-aware CSV tokenizer that chews through embedded commas in BASS-II descriptions without choking.
+// chews through raw CSV text and grabs quoted cells so embedded commas in BASS-II sample notes don't make the parser choke.
 function readCsv(csvText: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -539,7 +539,7 @@ function baseMaterialSimilarity(simulatorMaterial: SimulatorMaterial, runMateria
   return target === runMaterial ? 0 : runMaterial === "Unknown" ? 0.8 : 3;
 }
 
-// regex lookup tables for fuel chemistry, sample geometry, and thickness so extractMaterialGeometry has zero else-if chains.
+// regex tables that snatch fuel chemistry, sample geometry, and thickness out of messy lab strings with zero else-if chains.
 const BASE_MATERIAL_MATCHERS: readonly { regex: RegExp; material: BaseMaterial }[] = [
   {
     regex: /\bpmma\b|polymethyl\s*methacrylate|plexiglas|acrylic|\brod\b|micron\s*film|thick\s*film|spherical\s*section|200\s*micron|\bsphere\b/,
@@ -592,7 +592,7 @@ const THICKNESS_EXTRACTORS: readonly { regex: RegExp; toMm: (m: RegExpMatchArray
   },
 ];
 
-// parses chaotic lab sample notes like '3/8" black rod' or '100 micron film' into clean material and thickness numbers.
+// sneaks through chaotic raw NASA strings like "3/8\" black rod" and grabs the right PMMA preset without human help 🥷
 export function extractMaterialGeometry(rawMaterial: string): MaterialGeometry {
   const lower = rawMaterial.trim().toLowerCase();
   const baseMaterial =
@@ -620,7 +620,7 @@ export function extractMaterialGeometry(rawMaterial: string): MaterialGeometry {
   };
 }
 
-// maps any normalized NASA flight run to our 6 canonical simulator material keys via lookup rules instead of nested ifs.
+// grabs any normalized NASA flight run and shoves it into one of our 6 simulator material keys without touching nested ifs.
 const RUN_TO_SIMULATOR_MATERIAL_RULES: readonly {
   match: (run: NormalizedRun) => boolean;
   material: SimulatorMaterial;
@@ -638,7 +638,7 @@ export function mapRunToSimulatorMaterial(run: NormalizedRun): SimulatorMaterial
   );
 }
 
-// declarative extinction mechanism table because five stacked else-ifs for fan ramp-down logs is an eyesore.
+// pokes fan ramp-down logs and chemistry deltas so the parser reacts to blowoff vs low-flow quenching without five stacked else-ifs.
 const EXTINCTION_MECHANISM_RULES: readonly {
   match: (ctx: {
     lower: string;
@@ -754,7 +754,7 @@ function buildHumanNormalizedRun(record: Record<string, string>, rowIndex: numbe
   };
 }
 
-// ingests both raw NASA BASS-II tables and our 8-campaign unified CSV schema without whining about missing cells.
+// snatches both raw NASA BASS-II tables and our 8-campaign unified CSV schema without freaking out over missing cells.
 export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
   const csvRows = readCsv(csvText);
   if (csvRows.length < 2) return [];
@@ -848,7 +848,7 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
   });
 }
 
-// unwraps whatever CSV string, array, or module container you throw at it into 654 normalized flight runs.
+// grabs whatever CSV string, array, or module wrapper you throw at it and spreads it into 654 normalized flight runs.
 const CONTAINER_EXTRACTOR_KEYS = ["MASTER_PSI_CSV", "default", "rows"] as const;
 
 export function loadMasterPsiDataset(rawMasterData: unknown): NormalizedRun[] {
@@ -886,7 +886,7 @@ export function loadMasterPsiDataset(rawMasterData: unknown): NormalizedRun[] {
   );
 }
 
-// declarative regime classifier table that replaces the nested 6-branch if/else-if ladder in simulateCombustionPhysics.
+// pokes the active burn state and grabs the matching combustion regime so simulateCombustionPhysics never touches a 6-branch else-if ladder.
 const REGIME_CLASSIFIERS: readonly {
   match: (ctx: {
     ignited: boolean;
@@ -908,7 +908,7 @@ const REGIME_CLASSIFIERS: readonly {
   },
 ];
 
-// core Froude + Olson/T'ien U-curve + Damkohler pressure physics solver, clamped so 0% O2 or 0g never NaNs.
+// shoves live slider inputs through Froude buoyancy, Olson/T'ien U-curve limits, and Damkohler pressure scaling without letting 0g freak out.
 export function simulateCombustionPhysics(params: SimulationParams): CombustionSimulationResult {
   const o2Pct = clamp(finiteOr(params.o2Pct, 21), 0, 100);
   const pressurePsi = clamp(finiteOr(params.pressurePsi, 14.7), 4, 15);
@@ -919,20 +919,20 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
   const material = params.material in MATERIAL_PHYSICS ? params.material : DEFAULT_PARAMS.material;
   const materialPhysics = MATERIAL_PHYSICS[material];
 
-  // Froude buoyancy (de Ris 1969) + ACME E-FIELD ion wind (Chien et al. 2019) combined in quadrature so 0g doesn't divide by zero.
+  // grabs Froude buoyancy (22*sqrt(g)) and ACME E-FIELD ion wind (0.008*E), then shoves them into quadrature with fan flow so 0g never divides by zero.
   const buoyantVelocityCmS = 22 * Math.sqrt(Math.max(0, gravityG));
   const ionWindVelocityCmS = 0.008 * electricFieldVoltsCm;
   const naturalDraftCmS = buoyantVelocityCmS + ionWindVelocityCmS;
   const effectiveVelocityCmS = Math.sqrt(airflowCmS ** 2 + naturalDraftCmS ** 2);
   const equivalentGravityG = (naturalDraftCmS / 22) ** 2;
 
-  // Olson (1991) & T'ien (1986) said stagnant space air chokes fire in its own CO2 under 2 cm/s while >12 cm/s strips heat toward blowoff.
+  // 0g fire chokes on its own CO2 under 2 cm/s, so we slap an Olson/T'ien low-flow penalty right onto the limit while >12 cm/s strips heat toward blowoff 💦
   const lowFlowPenalty =
     effectiveVelocityCmS < 2 ? 4.8 * ((2 - effectiveVelocityCmS) / 2) ** 1.25 : 0;
   const highFlowPenalty =
     effectiveVelocityCmS > 12 ? 0.04 * (effectiveVelocityCmS - 12) ** 1.4 : 0;
 
-  // Damkohler reduced-pressure power law (P / 14.7)^-0.25 + thermal thickness log2 scaling + CO2 heat-capacity inerting.
+  // pokes the Damkohler sub-atmospheric power law (P / 14.7)^-0.25 and thermal thickness log2 scaling so thin films spread way easier than thick slabs.
   const pressureScale = (Math.max(0.1, pressurePsi) / 14.7) ** -0.25;
   const thicknessCorrection = 0.22 * Math.log2(Math.max(0.05, materialPhysics.thicknessMm) / 0.35);
 
@@ -970,7 +970,7 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
       )
     : 0;
 
-  // Nayagam et al. (2012) FLEX cool-flame regime locks temperature into 550-750 K peroxy chemistry instead of normal 1350-2400 K hot soot.
+  // chokes FLEX / ACME CFI-G cool flames into a spooky 550-750 K peroxy crawl instead of letting them react like a 2000 K hot soot torch 👁️
   const coolFlame = regime === "COOL_FLAME_CFI_G";
   const adiabaticFlameTempK = !ignited
     ? 295
@@ -1060,7 +1060,7 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
   };
 }
 
-// spectral color table so generateFlameRenderGeometry picks cyan 0g spheres, indigo #6366F1 cool flames, or orange plumes without else-if soup.
+// grabs cyan 0g spheres, indigo #6366F1 cool flames, or angry orange plumes from a flat table without touching else-if soup.
 const FLAME_SPECTRAL_LOOKUP: readonly {
   match: (ctx: {
     isBurning: boolean;
@@ -1082,7 +1082,7 @@ const FLAME_SPECTRAL_LOOKUP: readonly {
   { match: ({ isBurning }) => isBurning, coreColorHex: "#FF7A00", outerGlowColorHex: "#FFD166" },
 ];
 
-// maps physics state into flame dimensions, spectral colors, and buoyant flicker Hz.
+// pokes the simulation output and spreads it into flame length, aspect ratio, spectral hex codes, and buoyant flicker Hz.
 export function generateFlameRenderGeometry(
   simResult: CombustionSimulationResult,
 ): FlameRenderGeometry {
@@ -1188,7 +1188,7 @@ function buildClosedPlumeBezierPath(
   ].join(" ");
 }
 
-// threshold lookup table for thermocouple probe glow colors so we don't chain four if statements.
+// snatches the glowing thermocouple tip color by temperature threshold so we don't stack four if statements.
 const THERMOCOUPLE_COLOR_THRESHOLDS: readonly { minK: number; hex: string }[] = [
   { minK: 1800, hex: "#FEF3C7" },
   { minK: 1350, hex: "#F97316" },
@@ -1199,7 +1199,7 @@ const THERMOCOUPLE_COLOR_THRESHOLDS: readonly { minK: number; hex: string }[] = 
 const thermocoupleColor = (tempK: number): string =>
   THERMOCOUPLE_COLOR_THRESHOLDS.find((t) => tempK >= t.minK)?.hex ?? "#64748B";
 
-// computes 640x380 wind-tunnel Schlieren zones, plume tilt atan2(buoyant+ion, fan), standoff distance, and SAME/DAFT laser obscuration.
+// spreads out the 640x380 Schlieren flame zones, plume tilt atan2(buoyant+ion, fan), liftoff standoff, and SAME/DAFT laser sensors.
 export function generateAdvancedFlameField(
   simResult: CombustionSimulationResult,
 ): AdvancedFlameField {
@@ -1471,7 +1471,7 @@ export function generateAdvancedFlameField(
     };
   });
 
-  // SAME sub-micron smoke (<0.55 um) vs DAFT coarse cabin dust (>2.2 um) discrimination without nested else-if spaghetti.
+  // pokes the particle size (<0.55 um vs >2.2 um) so the laser alarm only reacts to real fire smoke and ignores astronauts kicking up cabin dust.
   const isSmokeAlarm =
     isBurning && (simResult.smokeSootIndex >= 22 || simResult.estimatedCO_ppm >= 120);
   const isDustDiscriminated = !isSmokeAlarm && simResult.airflowCmS >= 18;
@@ -1540,7 +1540,7 @@ export function generateAdvancedFlameField(
   };
 }
 
-// sweeps pressure (4-15 psi) and airflow (0-50 cm/s) to bound Lunar 0.16g and Mars 0.38g curves strictly between 0g and 1g.
+// sweeps pressure (4-15 psi) and airflow (0-50 cm/s) and shoves Lunar 0.16g and Mars 0.38g curves strictly between 0g and 1g.
 export function generateFlammabilityEnvelopeData(
   currentParams: Partial<SimulationParams>,
 ): FlammabilityEnvelopeData {
@@ -1594,7 +1594,7 @@ export function generateFlammabilityEnvelopeData(
   return { o2VsPressureCurve, o2VsAirflowCurve, habitatPins };
 }
 
-// lookup tables for phase heatmap colors, valley zones, and telemetry pin outcomes so generateFlammabilityPhaseMatrix stays branch-free.
+// grabs heatmap colors, valley zones, and telemetry pin outcomes from flat tables so generateFlammabilityPhaseMatrix never freaks out.
 const REGIME_HEATMAP_COLORS: Partial<Record<CombustionRegime, string>> = {
   NO_IGNITION_QUENCHED: "#0F172A",
   NO_IGNITION_BLOWOFF: "#1E293B",
@@ -1646,7 +1646,7 @@ const TELEMETRY_OUTCOME_MATCHERS: readonly {
   },
 ];
 
-// builds the 23x19 pressure-O2 grid, 26x19 airflow-O2 grid, iso-spread contours, bounding corridor, pre-breathe vector, and 654 telemetry pins.
+// spreads out the 23x19 pressure-O2 grid, 26x19 airflow-O2 grid, iso-spread contours, pre-breathe vector, and 654 telemetry pins.
 export function generateFlammabilityPhaseMatrix(
   currentParams: SimulationParams,
   empiricalRuns: readonly NormalizedRun[],
@@ -1857,7 +1857,7 @@ export function generateFlammabilityPhaseMatrix(
   };
 }
 
-// ranks empirical NASA flight runs by weighted L1 distance so you always see the closest real-world ISS burn tests.
+// pokes all 654 empirical NASA flight runs with weighted L1 distance and snatches the closest real-world ISS burn tests.
 export function findClosestEmpiricalRuns(
   params: SimulationParams,
   parsedRuns: readonly NormalizedRun[],

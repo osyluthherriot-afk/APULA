@@ -1,4 +1,4 @@
-// catalog of all 13 NASA PSI fire safety investigations + relevance ranker with zero else-if bloat.
+// spreads out all 13 NASA PSI fire safety investigations + relevance ranker with zero else-if bloat.
 import {
   type NormalizedRun,
   type SimulationParams,
@@ -588,7 +588,7 @@ export const PSI_INVESTIGATIONS: PsiInvestigation[] = [
   },
 ];
 
-// ordered prefix lookup table so FLEX-20CAL08 doesn't get misclassified as FLEX-2 when counting loaded rows.
+// sneaks past prefix collisions with regex lookaheads so FLEX-20CAL08 never gets snatched by FLEX-2 when counting loaded rows 🥷
 const CAMPAIGN_PREFIX_LOOKUP: readonly { regex: RegExp; id: string }[] = [
   { regex: /^BASS-?II(?=[-:_\s]|$)/, id: "BASS-II" },
   { regex: /^BASS(?=[-:_\s]|$)/, id: "BASS" },
@@ -619,7 +619,7 @@ const GRAVITY_REGIME_TARGETS: readonly { token: string; g: number }[] = [
 const parseTargetGravity = (gravityRegime: string): number =>
   GRAVITY_REGIME_TARGETS.find((entry) => gravityRegime.includes(entry.token))?.g ?? 0;
 
-// declarative bonus rules for the investigation ranker so we don't stack 60 lines of if-statements per study.
+// pokes each study against active slider state and grabs bonus points without touching 60 lines of stacked if-statements.
 const INVESTIGATION_BONUS_RULES: readonly {
   match: (inv: PsiInvestigation, p: SimulationParams) => boolean;
   deltaPenalty: number;
@@ -661,7 +661,7 @@ const INVESTIGATION_BONUS_RULES: readonly {
   },
 ];
 
-// scores all 13 NASA investigations from 0-100 against the active habitat sliders and attaches live CSV row counts.
+// shoves all 13 NASA investigations through a 0-100 habitat scorer and grabs live CSV row counts per campaign.
 export function rankPsiInvestigations(
   params: SimulationParams,
   pillarFilter: string,
@@ -718,7 +718,7 @@ export function rankPsiInvestigations(
     .sort((a, b) => b.score - a.score);
 }
 
-// pre-parses all 654 flight rows at module load so the dashboard boots instantly with zero upload lag.
+// snatches all 654 flight rows at module boot so the UI spreads out immediately with zero upload lag.
 export const LOADED_MASTER_PSI_RUNS: NormalizedRun[] =
   loadMasterPsiDataset(MASTER_PSI_CSV);
 

@@ -1,4 +1,4 @@
-// 60fps Three.js microgravity wind-tunnel chamber with additive-blended morphing sphere-to-teardrop flame meshes.
+// spreads out a 60fps Three.js microgravity wind-tunnel chamber with additive-blended sphere-to-teardrop flame meshes.
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +25,7 @@ interface OrbitState {
   distance: number;
 }
 
-// nuked the 5-branch morphology badge if-chain into a declarative rule table so the HUD header stays clean.
+// pokes the active regime and grabs the HUD morphology badge without touching a 5-branch else-if chain.
 const MORPHOLOGY_BADGE_RULES: readonly {
   match: (sim: CombustionSimulationResult, geo: FlameRenderGeometry) => boolean;
   modeLabel: string;
@@ -88,7 +88,7 @@ const LASER_BADGE_CLASSES: Record<
   NOMINAL: "border-emerald-500/80 bg-emerald-950/90 text-emerald-200",
 };
 
-// stretches the 3D sphere into a teardrop when gravity or airflow shows up, don't touch the aspect ratio math unless you want cursed geometry.
+// stretches and touches the 64x64 sphere vertices to spread them into a floating cyan orb or an angry teardrop at 60fps 💦
 function deformFlameSphereGeometry(
   geometry: THREE.SphereGeometry,
   basePositions: Float32Array,
@@ -543,7 +543,7 @@ export default function ThreeFlameChamber({
       const alarmState = curField.chamberSensors.aerosolLaserBeam.alarmState;
       laserMat.color.set(LASER_ALARM_COLORS[alarmState]);
 
-      // tilts and lifts the 3D flame group by atan2(buoyant+ion, fan) and standoffDistancePx so blowoff liftoff is physically visible.
+      // shoves and tilts the 3D flame group by atan2(buoyant+ion, fan) and standoffDistancePx so blowoff liftoff reacts right in front of your eyes.
       const tiltRad =
         (curField.flameDynamics.plumeTiltAngleDeg * Math.PI) / 180;
       const standoffWorld =
@@ -555,7 +555,7 @@ export default function ThreeFlameChamber({
         0,
       );
 
-      // declarative 3D shader state table so we don't nest four else-ifs inside the 60fps loop.
+      // snatches the active 3D shader colors and point-light pulse from a flat table so we never nest four else-ifs inside the 60fps loop.
       const sootStrength = Math.min(
         0.78,
         Math.max(

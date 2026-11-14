@@ -8,7 +8,7 @@
 
 | File Path | Lines | What It Touches & Why We Built It This Way |
 | :--- | :--- | :--- |
-| `src/lib/combustionPhysicsEngine.ts` | `L1–L1902` | This file does all the heavy math, parses the CSV, and spits out flame shapes or whatever the fuck so the UI doesn't have to be slow af. |
+| `src/lib/combustionPhysicsEngine.ts` | `L1–L1902` | This file does all the heavy math, parses the CSV, and spits out flame shapes or whatever the f*** so the UI doesn't have to be slow af. |
 | `src/data/psiCatalog.ts` | `L1–L728` | Holds metadata for 13 NASA campaigns and scores which experiment matches |
 | `src/data/masterPsiData.ts` | `L1–L2` | A two-line barrel file that re-exports the dataset so TypeScript imports don't cry about relative folder paths. |
 | `datum/masterPsiData.ts` | `L1–L657` | All 654 real NASA flight test runs hardcoded right into the bundle so the app boots instantly without require the user to upload a CSV. |
@@ -59,7 +59,7 @@
 
 We aren't pretending a browser tab is a supercomputer, so here is every shortcut I took, where gng is all at, and how it holds up against NASA's real hardware data.
 
-| Assumption | Exact File & Lines | Why We Did It That Way (Unhinged Short Version) | Ground-Truth Benchmark & Result |
+| Assumption | Exact File & Lines | Why We Did It That Way | Ground-Truth Benchmark & Result |
 | :--- | :--- | :--- | :--- |
 | **Missing `BASS-II` Pressure Defaults to `14.7 psi`** | `src/lib/combustionPhysicsEngine.ts:L422–L432` | NASA's `BASS-II` logs didn't bother writing down cabin pressure for every run inside the ISS glovebox, so we default to standard `14.7 psi` station air instead of giving up. | Matches ISS Destiny Lab nominal operating pressure (`14.7 psi / 101.3 kPa`). **PASS** |
 | **Algebraic U-Curve Instead of 3D Radiative PDEs** | `src/lib/combustionPhysicsEngine.ts:L930–L948` | Solving full 3D Navier-Stokes radiation equations takes 6 hours per frame, so we curve-fitted Olson & T'ien's extinction boundaries into two fast exponents. | Backtested against 253 solid-fuel flight runs (`BASS`, `BASS-II`, `SAFFIRE-3`) with **87.35% accuracy**. **PASS** |
@@ -71,7 +71,7 @@ We aren't pretending a browser tab is a supercomputer, so here is every shortcut
 
 ## 4. Automated Verification Scorecard (`scripts/verifyPhysics.ts`)
 
-We ran `npx tsx scripts/verifyPhysics.ts` against the refactored engine and all 654 NASA PSI rows. Every physics law and flight backtest passed without choking:
+Ran `npx tsx scripts/verifyPhysics.ts` against the refactored engine and all 654 NASA PSI rows. Every physics law and flight backtest passed without choking:
 
 ```text
 ================================================================================

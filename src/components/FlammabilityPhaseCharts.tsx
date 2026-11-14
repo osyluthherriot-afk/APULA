@@ -1,4 +1,4 @@
-// zoomable 3A & 3B flammability phase charts with 12-38% O2 boundary focus mode, smooth thermal gradients, and clustered telemetry pins.
+// spreads out the 3A & 3B flammability phase charts with 12-38% O2 boundary focus, smooth thermal gradients, and clustered telemetry pins so the SVG doesn't freak out 👅
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -26,7 +26,7 @@ interface BinnedTelemetryCluster {
   sampleMetric: string;
 }
 
-// lookup dictionary for habitat callout leader-line offsets so ISS (0g) and Earth (1g) never collide at (14.7 psi, 21% O2).
+// shoves ISS (0g) and Earth (1g) callout labels apart via a flat offset lookup so they stop touching at (14.7 psi, 21% O2).
 const HABITAT_CALLOUT_OFFSETS: Record<
   string,
   { dx: number; dy: number; anchor: "start" | "end" }
@@ -37,7 +37,7 @@ const HABITAT_CALLOUT_OFFSETS: Record<
   "Mars Habitat Reference": { dx: -14, dy: 16, anchor: "end" },
 };
 
-// bins 654 raw NASA flight telemetry pins into rounded coordinate clusters so the boundary curves don't get buried under dot spam.
+// grabs overlapping scatter pins and shoves them into binned clusters before 654 raw SVG circles spread all over each other.
 function buildBinnedClusters(
   nodes: readonly EmpiricalTelemetryNode[],
   mode: "pressure" | "airflow",
@@ -268,7 +268,7 @@ export default function FlammabilityPhaseCharts({
     );
   }, [envelopeData.o2VsAirflowCurve]);
 
-  // applies the constant offset dictionary to every habitat pin so zero else-if branches are needed.
+  // grabs the leader-line offset for each habitat pin from the lookup table so zero else-if branches touch the render loop.
   const habitatCallouts3A = useMemo(() => {
     return envelopeData.habitatPins.map((pin) => {
       const cx = mapPressureX(pin.pressurePsi);
