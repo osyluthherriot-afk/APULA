@@ -346,7 +346,7 @@ export const PSI_INVESTIGATIONS: PsiInvestigation[] = [
         "Builds directly upon SAME with expanded ventilation velocities and aging loops, feeding calibrated smoke-size lookup tables into DAFT dust rejection algorithms.",
     },
     earthSpinoff:
-      "NEXT-GEN multi-criteria aircraft cargo-bay and industrial cleanroom smoke detectors with vastly lower false-alarm rates.",
+      "Multi-criteria aircraft cargo-bay and industrial cleanroom smoke detectors with vastly lower false-alarm rates.",
   },
   {
     id: "DAFT",

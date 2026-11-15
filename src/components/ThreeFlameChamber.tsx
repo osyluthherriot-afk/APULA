@@ -251,6 +251,7 @@ export default function ThreeFlameChamber({
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: "high-performance",
+      preserveDrawingBuffer: true,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -904,7 +905,7 @@ export default function ThreeFlameChamber({
           containIntrinsicSize: "auto none auto 460px",
         } as React.CSSProperties
       }
-      className="relative w-full border border-slate-700 bg-slate-950 overflow-hidden select-none"
+      className="ap-chamber-frame relative isolate w-full bg-[#161617] overflow-hidden select-none"
     >
       <div
         ref={mountRef}
@@ -917,34 +918,34 @@ export default function ThreeFlameChamber({
         className="w-full h-[420px] cursor-grab active:cursor-grabbing"
       />
 
-      <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1.5 max-w-[70%]">
+      <div className="pointer-events-none absolute top-3 left-3 z-[200] flex flex-col gap-1.5 max-w-[70%]">
         <div
-          className={`inline-flex items-center gap-2 border px-2.5 py-1 font-mono text-[11px] font-bold tracking-wide backdrop-blur-md ${badgeColorClass}`}
+          className={`inline-flex items-center gap-2 border rounded-full px-2.5 py-1 font-mono text-[11px] font-bold tracking-wide backdrop-blur-md ${badgeColorClass}`}
         >
           <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse" />
           <span>3D MORPHOLOGY: {modeLabel}</span>
         </div>
-        <div className="inline-flex items-center gap-2 border border-slate-700/80 bg-slate-900/75 px-2.5 py-0.5 font-mono text-[10px] text-slate-300 backdrop-blur-sm w-fit">
+        <div className="ap-hud-pill inline-flex items-center gap-2 px-2.5 py-0.5 font-mono text-[10px] w-fit">
           <span>Drag to Orbit 360° • Scroll to Zoom • Double-Click Reset</span>
         </div>
       </div>
 
-      <div className=" absolute top-3 right-3 flex flex-col items-end gap-2">
+      <div className="absolute top-3 right-3 z-[200] flex flex-col items-end gap-2">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={handleResetCamera}
-            className="border border-slate-600 bg-slate-900/85 hover:bg-slate-800 text-slate-200 px-2.5 py-1 font-mono text-[11px] backdrop-blur-md transition"
+            className="ap-hud-pill hover:opacity-90 px-3 py-1 text-[11px] font-medium transition"
           >
             Reset View
           </button>
           <button
             type="button"
             onClick={() => setShowProbes((prev) => !prev)}
-            className={`border px-3 py-1 font-mono text-[11px] font-bold backdrop-blur-md transition ${
+            className={`px-3 py-1 text-[11px] font-medium transition ${
               showProbes
-                ? "border-amber-400 bg-amber-500/20 text-amber-200"
-                : "border-slate-600 bg-slate-900/85 hover:bg-slate-800 text-slate-200"
+                ? "ap-hud-pill ring-1 ring-[#FF9F0A] text-[#FF9F0A]"
+                : "ap-hud-pill hover:opacity-90"
             }`}
           >
             {showProbes ? "Hide Sensor Probes" : "Show Sensor Probes"}
@@ -952,14 +953,14 @@ export default function ThreeFlameChamber({
         </div>
 
         {showProbes && (
-          <div className="w-56 border border-slate-700 bg-slate-900/90 p-2.5 font-mono text-[10px] text-slate-200 backdrop-blur-md shadow-xl space-y-2">
-            <div className="border-b border-slate-700 pb-1 font-bold uppercase text-amber-300 flex justify-between">
+          <div className="ap-hud-panel w-56 p-3 font-mono text-[10px] space-y-2">
+            <div className="border-b border-white/15 pb-1 font-semibold uppercase text-[#FF9F0A] flex justify-between">
               <span>Chamber Probe Array</span>
               <span>5x TC + RAD</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Radiometer Flux:</span>
-              <span className="font-bold text-yellow-300">
+              <span className="text-[#A1A1A6]">Radiometer Flux:</span>
+              <span className="font-semibold text-[#FF9F0A] tabular-nums">
                 {resolvedField.chamberSensors.radiometer.radiativeFluxKwM2} kW/m²
               </span>
             </div>
@@ -967,7 +968,7 @@ export default function ThreeFlameChamber({
               {resolvedField.chamberSensors.thermocoupleRake.map((tip, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between border-t border-slate-800/80 pt-1"
+                  className="flex items-center justify-between border-t border-white/10 pt-1"
                 >
                   <span className="flex items-center gap-1.5 text-slate-300">
                     <span
@@ -986,33 +987,33 @@ export default function ThreeFlameChamber({
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-0 inset-x-0 border-t border-slate-800 bg-slate-950/90 px-3 py-2 backdrop-blur-md">
+      <div className="ap-hud-bar pointer-events-none absolute bottom-0 inset-x-0 z-[200] px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-slate-200">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Length: <strong>{flameGeometry.flameLengthMm} mm</strong>
             </span>
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Width: <strong>{flameGeometry.flameWidthMm} mm</strong>
             </span>
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Aspect Ratio: <strong>{flameGeometry.aspectRatio}</strong>
             </span>
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Plume Tilt:{" "}
               <strong>{resolvedField.flameDynamics.plumeTiltAngleDeg}°</strong>
             </span>
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Standoff:{" "}
               <strong>{resolvedField.flameDynamics.standoffDistancePx} px</strong>
             </span>
-            <span className="border border-slate-700 bg-slate-900 px-2 py-0.5">
+            <span className="ap-hud-chip px-2 py-0.5">
               Flicker: <strong>{flameGeometry.flickerFrequencyHz} Hz</strong>
             </span>
           </div>
 
           <div
-            className={`border px-2.5 py-0.5 font-bold ${LASER_BADGE_CLASSES[laserSensor.alarmState]}`}
+            className={`rounded-full border px-2.5 py-0.5 font-bold ${LASER_BADGE_CLASSES[laserSensor.alarmState]}`}
           >
             PIMS/DAFT LASER: {laserSensor.alarmState} (
             {laserSensor.meanParticleDiameterUm} µm •{" "}

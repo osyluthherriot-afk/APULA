@@ -313,18 +313,16 @@ export default function FlammabilityPhaseCharts({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 border border-slate-300 bg-white px-3 py-2">
+      <div className="ap-subcard flex flex-wrap items-center justify-between gap-2 px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs font-bold uppercase text-slate-700">
+          <span className="ap-text-2 font-mono text-xs font-bold uppercase">
             Y-Axis Scale Mode:
           </span>
           <button
             type="button"
             onClick={() => setZoomMode("focus")}
-            className={`border px-2.5 py-1 font-mono text-xs font-bold transition ${
-              isFocus
-                ? "border-sky-600 bg-sky-900 text-white"
-                : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className={`px-2.5 py-1 font-mono text-xs font-bold transition ${
+              isFocus ? "ap-pill-active" : "ap-pill"
             }`}
           >
             Focus: 12%–38% O2 Boundary Zone
@@ -332,10 +330,8 @@ export default function FlammabilityPhaseCharts({
           <button
             type="button"
             onClick={() => setZoomMode("full")}
-            className={`border px-2.5 py-1 font-mono text-xs font-bold transition ${
-              !isFocus
-                ? "border-sky-600 bg-sky-900 text-white"
-                : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className={`px-2.5 py-1 font-mono text-xs font-bold transition ${
+              !isFocus ? "ap-pill-active" : "ap-pill"
             }`}
           >
             Full Scale: 0%–100% O2
@@ -346,10 +342,8 @@ export default function FlammabilityPhaseCharts({
           <button
             type="button"
             onClick={() => setShowEmpiricalPins((prev) => !prev)}
-            className={`border px-2.5 py-1 font-mono text-xs font-bold transition ${
-              showEmpiricalPins
-                ? "border-emerald-600 bg-emerald-900 text-white"
-                : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className={`px-3 py-1.5 text-[12px] font-medium transition ${
+              showEmpiricalPins ? "ap-pill-active" : "ap-pill"
             }`}
           >
             {showEmpiricalPins
@@ -359,31 +353,32 @@ export default function FlammabilityPhaseCharts({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border border-slate-300 bg-white p-3">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="ap-card p-6">
+          <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
             <div>
-              <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
+              <span className="ap-eyebrow block">Gravity &amp; Pressure Envelope</span>
+              <h3 className="ap-h3 mt-0.5">
                 3A. Partial-Gravity Bounding Envelope (O2% vs Pressure psi)
               </h3>
-              <div className="flex flex-wrap gap-1 mt-1">
-                <span className="border border-indigo-500 bg-indigo-100 text-indigo-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+              <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                <span className="ap-prov-estimated">
                   {METRIC_PROVENANCE_LABELS.partialGravityBoundaries.badge}
                 </span>
-                <span className="border border-emerald-500 bg-emerald-100 text-emerald-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                <span className="ap-prov-measured">
                   {METRIC_PROVENANCE_LABELS.empiricalFlightPins.badge}
                 </span>
               </div>
             </div>
-            <span className="font-mono text-[11px] text-slate-500">
-              X: 4–15 psi | Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
+            <span className="ap-text-3 font-mono text-[11px] tabular-nums">
+              X: 4–15 psi · Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
             </span>
           </div>
 
-          <div className="relative">
+          <div className="relative isolate">
             <svg
               viewBox={`0 0 ${chartW} ${chartH}`}
-              className="w-full border border-slate-700 bg-[#070B14] mb-2"
+              className="ap-chart-well w-full mb-3"
             >
               <defs>
                 <clipPath id="chart3a-smooth-clip">
@@ -704,32 +699,32 @@ export default function FlammabilityPhaseCharts({
             </svg>
 
             {hoveredCluster3A && (
-              <div className="absolute bottom-4 left-14 border border-slate-600 bg-slate-900/95 px-2.5 py-1.5 font-mono text-[10px] text-slate-100 shadow-lg pointer-events-none">
+              <div className="ap-hud-panel absolute bottom-4 left-14 z-[200] px-2.5 py-1.5 font-mono text-[10px] text-slate-100 pointer-events-none">
                 <div className="flex flex-wrap items-center gap-1.5 font-bold text-sky-300">
                   <span>
                     Cluster: ×{hoveredCluster3A.count} Runs @{" "}
                     {hoveredCluster3A.xVal} psi, {hoveredCluster3A.o2Pct}% O2
                   </span>
-                  <span className="border border-emerald-400 bg-emerald-950 text-emerald-200 px-1 py-0.2 text-[9px]">
+                  <span className="text-[#FF9F0A] text-[10px] font-semibold">
                     {hoveredCluster3A.defaultedPressureCount > 0
                       ? "[MEASURED + DEFAULTED 14.7 PSI]"
                       : "[MEASURED — ISS FLIGHT TELEMETRY]"}
                   </span>
                 </div>
                 <div className="text-slate-300">
-                  Campaigns: {hoveredCluster3A.campaigns.join(", ")} • Sample:{" "}
+                  Campaigns: {hoveredCluster3A.campaigns.join(", ")} · Sample:{" "}
                   {hoveredCluster3A.sampleLabel} ({hoveredCluster3A.sampleMetric})
                 </div>
                 <div className="text-[9px] text-amber-300">
-                  Provenance: {hoveredCluster3A.count - hoveredCluster3A.defaultedPressureCount} MEASURED P •{" "}
-                  {hoveredCluster3A.defaultedPressureCount} DEFAULTED P •{" "}
+                  Provenance: {hoveredCluster3A.count - hoveredCluster3A.defaultedPressureCount} MEASURED P ·{" "}
+                  {hoveredCluster3A.defaultedPressureCount} DEFAULTED P ·{" "}
                   {hoveredCluster3A.inferredGeometryCount} INFERRED Geo/Thk
                 </div>
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3 font-mono text-[11px] text-slate-700 mb-2">
+          <div className="ap-text-2 flex flex-wrap gap-3 text-[11px] font-medium mb-3">
             <span>▬ White: 0g (BASS-II)</span>
             <span>--- Cyan: 0.16g Lunar (LUCI/FM2)</span>
             <span>- - Orange: 0.38g Mars</span>
@@ -737,31 +732,36 @@ export default function FlammabilityPhaseCharts({
             <span>- - Magenta: Pre-Breathe Vector</span>
           </div>
 
-          <div className="overflow-x-auto border-t border-slate-200 pt-2">
-            <table className="w-full font-mono text-[11px] text-left">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Habitat Pin Flammability Envelope Comparison"
+            className="ap-table-wrap ap-divider border-t pt-3"
+          >
+            <table className="w-full text-[12px] text-left">
               <thead>
-                <tr className="border-b border-slate-300 text-slate-600">
-                  <th className="py-1">Habitat Pin</th>
-                  <th className="py-1">O2 %</th>
-                  <th className="py-1">P (psi)</th>
-                  <th className="py-1">G</th>
-                  <th className="py-1">LOI %</th>
-                  <th className="py-1">IgnitionLikely</th>
+                <tr className="ap-table-head ap-text-3 text-[11px] font-semibold">
+                  <th className="py-1.5 pr-2">Habitat Pin</th>
+                  <th className="py-1.5 pr-2">O2 %</th>
+                  <th className="py-1.5 pr-2">P (psi)</th>
+                  <th className="py-1.5 pr-2">G</th>
+                  <th className="py-1.5 pr-2">LOI %</th>
+                  <th className="py-1.5">IgnitionLikely</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody>
                 {envelopeData.habitatPins.map((pin) => (
-                  <tr key={pin.name}>
-                    <td className="py-1 font-bold">{pin.name}</td>
-                    <td className="py-1">{pin.o2Pct}%</td>
-                    <td className="py-1">{pin.pressurePsi}</td>
-                    <td className="py-1">{pin.gravityG}g</td>
-                    <td className="py-1">{pin.limitingO2Pct}%</td>
+                  <tr key={pin.name} className="ap-table-row">
+                    <td className="py-1.5 pr-2 font-semibold ap-text-1">{pin.name}</td>
+                    <td className="py-1.5 pr-2 font-mono tabular-nums">{pin.o2Pct}%</td>
+                    <td className="py-1.5 pr-2 font-mono tabular-nums">{pin.pressurePsi}</td>
+                    <td className="py-1.5 pr-2 font-mono tabular-nums">{pin.gravityG}g</td>
+                    <td className="py-1.5 pr-2 font-mono tabular-nums">{pin.limitingO2Pct}%</td>
                     <td
-                      className={`py-1 font-bold ${
+                      className={`py-1.5 font-mono text-[11px] font-semibold ${
                         pin.ignitionLikely
-                          ? "text-rose-700"
-                          : "text-emerald-700"
+                          ? "ap-prov-measured"
+                          : "ap-prov-estimated"
                       }`}
                     >
                       {pin.ignitionLikely ? "TRUE (BURN)" : "FALSE (SAFE)"}
@@ -773,30 +773,31 @@ export default function FlammabilityPhaseCharts({
           </div>
         </div>
 
-        <div className="border border-slate-300 bg-white p-3">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+        <div className="ap-card p-6">
+          <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
             <div>
-              <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
+              <span className="ap-eyebrow block">Forced Flow Stability</span>
+              <h3 className="ap-h3 mt-0.5">
                 3B. Microgravity Ventilation U-Curve (O2% vs Airflow cm/s)
               </h3>
-              <div className="flex flex-wrap gap-1 mt-1">
-                <span className="border border-indigo-500 bg-indigo-100 text-indigo-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+              <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                <span className="ap-prov-estimated">
                   {METRIC_PROVENANCE_LABELS.uCurveBoundaries.badge}
                 </span>
-                <span className="border border-emerald-500 bg-emerald-100 text-emerald-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                <span className="ap-prov-measured">
                   {METRIC_PROVENANCE_LABELS.empiricalFlightPins.badge}
                 </span>
               </div>
             </div>
-            <span className="font-mono text-[11px] text-slate-500">
-              X: 0–50 cm/s | Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
+            <span className="ap-text-3 font-mono text-[11px] tabular-nums">
+              X: 0–50 cm/s · Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
             </span>
           </div>
 
-          <div className="relative">
+          <div className="relative isolate">
             <svg
               viewBox={`0 0 ${chartW} ${chartH}`}
-              className="w-full border border-slate-700 bg-[#070B14] mb-2"
+              className="ap-chart-well w-full mb-3"
             >
               <defs>
                 <clipPath id="chart3b-smooth-clip">
@@ -1097,108 +1098,108 @@ export default function FlammabilityPhaseCharts({
             </svg>
 
             {hoveredCluster3B && (
-              <div className="absolute bottom-4 left-14 border border-slate-600 bg-slate-900/95 px-2.5 py-1.5 font-mono text-[10px] text-slate-100 shadow-lg pointer-events-none">
+              <div className="ap-hud-panel absolute bottom-4 left-14 z-[200] px-2.5 py-1.5 font-mono text-[10px] text-slate-100 pointer-events-none">
                 <div className="flex flex-wrap items-center gap-1.5 font-bold text-amber-300">
                   <span>
                     Cluster: ×{hoveredCluster3B.count} Runs @{" "}
                     {hoveredCluster3B.xVal} cm/s, {hoveredCluster3B.o2Pct}% O2
                   </span>
-                  <span className="border border-emerald-400 bg-emerald-950 text-emerald-200 px-1 py-0.2 text-[9px]">
+                  <span className="text-[#FF9F0A] text-[10px] font-semibold">
                     {hoveredCluster3B.defaultedPressureCount > 0
                       ? "[MEASURED + DEFAULTED 14.7 PSI]"
                       : "[MEASURED — ISS FLIGHT TELEMETRY]"}
                   </span>
                 </div>
                 <div className="text-slate-300">
-                  Campaigns: {hoveredCluster3B.campaigns.join(", ")} • Sample:{" "}
+                  Campaigns: {hoveredCluster3B.campaigns.join(", ")} · Sample:{" "}
                   {hoveredCluster3B.sampleLabel} ({hoveredCluster3B.sampleMetric})
                 </div>
                 <div className="text-[9px] text-sky-300">
-                  Provenance: {hoveredCluster3B.count - hoveredCluster3B.defaultedPressureCount} MEASURED P •{" "}
-                  {hoveredCluster3B.defaultedPressureCount} DEFAULTED P •{" "}
+                  Provenance: {hoveredCluster3B.count - hoveredCluster3B.defaultedPressureCount} MEASURED P ·{" "}
+                  {hoveredCluster3B.defaultedPressureCount} DEFAULTED P ·{" "}
                   {hoveredCluster3B.inferredGeometryCount} INFERRED Geo/Thk
                 </div>
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 border-t border-slate-200 pt-2">
-            <div className="max-h-36 overflow-y-auto border border-slate-200 p-1.5">
-              <div className="font-mono text-[10px] font-bold uppercase text-slate-600 mb-1">
+          <div className="ap-divider grid grid-cols-1 md:grid-cols-3 gap-3 border-t pt-3">
+            <div tabIndex={0} role="region" aria-label="O2 vs Pressure Curve Table" className="ap-table-wrap max-h-40 overflow-y-auto pr-1">
+              <div className="ap-text-3 text-[11px] font-semibold mb-1.5">
                 o2VsPressure ({envelopeData.o2VsPressureCurve.length} pts)
               </div>
-              <table className="w-full font-mono text-[10px]">
+              <table className="w-full font-mono text-[10px] tabular-nums">
                 <thead>
-                  <tr className="border-b border-slate-300">
-                    <th className="text-left">psi</th>
-                    <th className="text-right">0g</th>
-                    <th className="text-right">0.16g</th>
-                    <th className="text-right">0.38g</th>
-                    <th className="text-right">1g</th>
+                  <tr className="ap-table-head ap-text-3">
+                    <th className="py-1 text-left">psi</th>
+                    <th className="py-1 text-right">0g</th>
+                    <th className="py-1 text-right">0.16g</th>
+                    <th className="py-1 text-right">0.38g</th>
+                    <th className="py-1 text-right">1g</th>
                   </tr>
                 </thead>
                 <tbody>
                   {envelopeData.o2VsPressureCurve.map((pt) => (
-                    <tr key={pt.pressurePsi}>
-                      <td>{pt.pressurePsi}</td>
-                      <td className="text-right">{pt.loi_0g_ventilated}%</td>
-                      <td className="text-right">
+                    <tr key={pt.pressurePsi} className="ap-table-row">
+                      <td className="py-1">{pt.pressurePsi}</td>
+                      <td className="py-1 text-right">{pt.loi_0g_ventilated}%</td>
+                      <td className="py-1 text-right">
                         {pt.loi_lunar_016g_bounded}%
                       </td>
-                      <td className="text-right">{pt.loi_mars_038g_bounded}%</td>
-                      <td className="text-right">{pt.loi_1g_earth}%</td>
+                      <td className="py-1 text-right">{pt.loi_mars_038g_bounded}%</td>
+                      <td className="py-1 text-right">{pt.loi_1g_earth}%</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="max-h-36 overflow-y-auto border border-slate-200 p-1.5">
-              <div className="font-mono text-[10px] font-bold uppercase text-slate-600 mb-1">
+            <div tabIndex={0} role="region" aria-label="O2 vs Airflow Curve Table" className="ap-table-wrap max-h-40 overflow-y-auto pr-1">
+              <div className="ap-text-3 text-[11px] font-semibold mb-1.5">
                 o2VsAirflow ({envelopeData.o2VsAirflowCurve.length} pts)
               </div>
-              <table className="w-full font-mono text-[10px]">
+              <table className="w-full font-mono text-[10px] tabular-nums">
                 <thead>
-                  <tr className="border-b border-slate-300">
-                    <th className="text-left">cm/s</th>
-                    <th className="text-right">LOI%</th>
+                  <tr className="ap-table-head ap-text-3">
+                    <th className="py-1 text-left">cm/s</th>
+                    <th className="py-1 text-right">LOI%</th>
                   </tr>
                 </thead>
                 <tbody>
                   {envelopeData.o2VsAirflowCurve.map((pt) => (
-                    <tr key={pt.airflowCmS}>
-                      <td>{pt.airflowCmS} cm/s</td>
-                      <td className="text-right">{pt.limitingO2Pct}%</td>
+                    <tr key={pt.airflowCmS} className="ap-table-row">
+                      <td className="py-1">{pt.airflowCmS} cm/s</td>
+                      <td className="py-1 text-right">{pt.limitingO2Pct}%</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="max-h-36 overflow-y-auto border border-slate-200 p-1.5">
-              <div className="font-mono text-[10px] font-bold uppercase text-slate-600 mb-1">
+            <div tabIndex={0} role="region" aria-label="Pre-Breathe Vector Table" className="ap-table-wrap max-h-40 overflow-y-auto pr-1">
+              <div className="ap-text-3 text-[11px] font-semibold mb-1.5">
                 Pre-Breathe Vector ({phaseMatrix.preBreatheTradeoffVector.length} steps)
               </div>
-              <table className="w-full font-mono text-[10px]">
+              <table className="w-full font-mono text-[10px] tabular-nums">
                 <thead>
-                  <tr className="border-b border-slate-300">
-                    <th className="text-left">psi/O2</th>
-                    <th className="text-right">PreB</th>
-                    <th className="text-right">Spread</th>
-                    <th className="text-right">Risk×</th>
+                  <tr className="ap-table-head ap-text-3">
+                    <th className="py-1 text-left">psi/O2</th>
+                    <th className="py-1 text-right">PreB</th>
+                    <th className="py-1 text-right">Spread</th>
+                    <th className="py-1 text-right">Risk×</th>
                   </tr>
                 </thead>
                 <tbody>
                   {phaseMatrix.preBreatheTradeoffVector.map((wp) => (
-                    <tr key={wp.stepIndex}>
-                      <td title={wp.label}>
+                    <tr key={wp.stepIndex} className="ap-table-row">
+                      <td className="py-1" title={wp.label}>
                         {wp.pressurePsi}p/{wp.o2Pct}%
                       </td>
-                      <td className="text-right">
+                      <td className="py-1 text-right">
                         {wp.preBreatheTimeMinutes}m
                       </td>
-                      <td className="text-right">{wp.flameSpreadMmS}</td>
-                      <td className="text-right">{wp.riskMultiplierVsIss}x</td>
+                      <td className="py-1 text-right">{wp.flameSpreadMmS}</td>
+                      <td className="py-1 text-right">{wp.riskMultiplierVsIss}x</td>
                     </tr>
                   ))}
                 </tbody>
