@@ -2,7 +2,7 @@
   "name": "apula",
   "version": "0.1.0",
   "private": true,
-  "description": "APULA (Atmospheric Prediction & Unified Low-gravity Analysis) - NASA Space Apps Project SIKLAB / ALAB Combustion Wireframe & Logic Harness",
+  "description": "APULA (Atmospheric Prediction & Unified Low-gravity Analysis) - NASA Space Apps Project APULA Combustion Wireframe & Logic Harness",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "APULA — Atmospheric Prediction & Unified Low-gravity Analysis",
   description:
-    "NASA Space Apps (Project SIKLAB / ALAB) structural wireframe and physics logic harness for microgravity and partial-gravity combustion analysis.",
+    "NASA Space Apps (Project APULA) structural wireframe and physics logic harness for microgravity and partial-gravity combustion analysis.",
 };
 
 /**

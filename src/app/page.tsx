@@ -305,7 +305,7 @@ export default function ApulaWireframePage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-slate-500">
-              APULA • Atmospheric Prediction &amp; Unified Low-gravity Analysis • NASA Space Apps (Project SIKLAB / ALAB)
+              APULA • Atmospheric Prediction &amp; Unified Low-gravity Analysis • NASA Space Apps (Project APULA)
             </p>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
               Spacecraft Fire Safety &amp; Partial-Gravity Combustion Wireframe (7-Section Architecture)
