@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
   type SimulatorMaterial,
+  type GeometryType,
   type SimulationParams,
   type CombustionSimulationResult,
   type FlameRenderGeometry,
@@ -11,6 +12,8 @@ import {
   type FlammabilityPhaseMatrix,
   type NormalizedRun,
   type EmpiricalRunMatch,
+  type ProvenanceStatus,
+  type RunDataQuality,
   parseAndNormalizePsiCsv,
   loadMasterPsiDataset,
   simulateCombustionPhysics,
@@ -122,7 +125,19 @@ const SIMULATOR_MATERIALS: { value: SimulatorMaterial; label: string }[] = [
   { value: "PROPANE_CFI_G", label: "PROPANE_CFI_G (ACME-CFI-G Spherical Burner)" },
 ];
 
-// grabs the provenance badge Tailwind classes from a constant Record instead of poking an if/else ladder.
+// lets users poke cylindrical rod (D/4) or sphere (D/6) curvature directly instead of choking everything as a flat slab 🥸
+const GEOMETRY_OVERRIDE_PILLS: {
+  label: string;
+  value: GeometryType | undefined;
+}[] = [
+  { label: "Preset Default", value: undefined },
+  { label: "Flat Slab [1.0x]", value: "Slab" },
+  { label: "Cylindrical Rod [D/4]", value: "Cylinder/Rod" },
+  { label: "Sphere [D/6]", value: "Sphere" },
+  { label: "Fabric [0.85x]", value: "Fabric" },
+];
+
+// grabs the provenance badge Tailwind classes from a constant Record instead of poking an if/else ladder 🥸
 const PROVENANCE_BADGE_CLASSES: Record<DataProvenanceTier, string> = {
   EMPIRICAL_CSV_LOADED: "border-emerald-500 bg-emerald-100 text-emerald-900",
   PHYSICS_AND_METADATA_MODEL: "border-cyan-500 bg-cyan-100 text-cyan-900",
@@ -132,7 +147,21 @@ const PROVENANCE_BADGE_CLASSES: Record<DataProvenanceTier, string> = {
 const getProvenanceBadgeClasses = (tier: DataProvenanceTier): string =>
   PROVENANCE_BADGE_CLASSES[tier];
 
-// spreads out the 7-section APULA workstation, shoving live slider inputs into the 60fps physics solver, 3D flame chamber, and 654 NASA PSI records.
+// slaps emerald, amber, purple, or indigo pills onto every telemetry number so nobody confuses model math with real ISS hardware sensors 💦
+const FIELD_PROVENANCE_BADGE_CLASSES: Record<ProvenanceStatus, string> = {
+  MEASURED: "border-emerald-500 bg-emerald-100 text-emerald-900",
+  INFERRED: "border-amber-500 bg-amber-100 text-amber-900",
+  DEFAULTED: "border-purple-500 bg-purple-100 text-purple-900",
+  ESTIMATED: "border-indigo-500 bg-indigo-100 text-indigo-900",
+};
+
+const RUN_QUALITY_BADGE_CLASSES: Record<RunDataQuality, string> = {
+  FULLY_MEASURED: "border-emerald-600 bg-emerald-50 text-emerald-900",
+  PARTIALLY_INFERRED: "border-amber-500 bg-amber-50 text-amber-900",
+  MODEL_ESTIMATED: "border-indigo-500 bg-indigo-50 text-indigo-900",
+};
+
+// spreads out the 7-section APULA workstation, shoving live slider inputs into the 60fps physics solver, 3D flame chamber, and 654 NASA PSI records 🐧
 export default function ApulaWireframePage() {
 
   const [params, setParams] = useState<SimulationParams>({
@@ -706,9 +735,11 @@ export default function ApulaWireframePage() {
             <div className="border border-slate-300 bg-white p-2.5 lg:col-span-2">
               <div className="flex justify-between text-xs font-mono mb-1">
                 <label htmlFor="ctrl-material" className="font-bold">
-                  7. material (SimulatorMaterial)
+                  7. material &amp; Sample Geometry
                 </label>
-                <span>Fuel Chemistry &amp; Thickness</span>
+                <span>
+                  Active: {simResult.geometryType} ({simResult.effectiveThicknessMm.toFixed(2)} mm eff)
+                </span>
               </div>
               <select
                 id="ctrl-material"
@@ -716,7 +747,7 @@ export default function ApulaWireframePage() {
                 onChange={(e) =>
                   updateParam("material", e.target.value as SimulatorMaterial)
                 }
-                className="w-full border border-slate-400 bg-slate-50 px-2 py-1 font-mono text-xs"
+                className="w-full border border-slate-400 bg-slate-50 px-2 py-1 font-mono text-xs mb-2"
               >
                 {SIMULATOR_MATERIALS.map((item) => (
                   <option key={item.value} value={item.value}>
@@ -724,6 +755,28 @@ export default function ApulaWireframePage() {
                   </option>
                 ))}
               </select>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="font-mono text-[10px] uppercase text-slate-500 mr-1">
+                  Geometry:
+                </span>
+                {GEOMETRY_OVERRIDE_PILLS.map((pill) => {
+                  const isActive = params.geometryType === pill.value;
+                  return (
+                    <button
+                      key={pill.label}
+                      type="button"
+                      onClick={() => updateParam("geometryType", pill.value)}
+                      className={`border px-1.5 py-0.5 font-mono text-[10px] transition-colors ${
+                        isActive
+                          ? "border-slate-900 bg-slate-900 text-white font-bold"
+                          : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>
@@ -741,9 +794,17 @@ export default function ApulaWireframePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             <div className="border border-slate-300 bg-white p-3">
-              <h3 className="font-mono text-xs font-bold uppercase border-b border-slate-300 pb-1.5 mb-2">
-                2A. CombustionSimulationResult
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-300 pb-1.5 mb-2">
+                <h3 className="font-mono text-xs font-bold uppercase">
+                  2A. CombustionSimulationResult
+                </h3>
+                <span
+                  className={`border px-1.5 py-0.5 font-mono text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                  title={simResult.metricProvenance.limitingO2Pct?.detail}
+                >
+                  {simResult.metricProvenance.limitingO2Pct?.badge}
+                </span>
+              </div>
               <table className="w-full font-mono text-xs">
                 <tbody className="divide-y divide-slate-200">
                   <tr>
@@ -753,9 +814,25 @@ export default function ApulaWireframePage() {
                     </td>
                   </tr>
                   <tr>
+                    <td className="py-1 text-slate-600">
+                      effectiveThicknessMm ({simResult.geometryType})
+                    </td>
+                    <td className="py-1 text-right font-bold">
+                      {simResult.effectiveThicknessMm.toFixed(2)} mm{" "}
+                      <span className="text-[10px] font-normal text-slate-500">
+                        (raw {simResult.rawThicknessMm.toFixed(2)} mm)
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
                     <td className="py-1 text-slate-600">limitingO2Pct (LOI)</td>
                     <td className="py-1 text-right font-bold">
-                      {simResult.limitingO2Pct.toFixed(2)} %
+                      {simResult.limitingO2Pct.toFixed(2)} %{" "}
+                      <span
+                        className={`ml-1 border px-1 py-0.2 text-[9px] ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                      >
+                        ESTIMATED
+                      </span>
                     </td>
                   </tr>
                   <tr>
@@ -788,19 +865,35 @@ export default function ApulaWireframePage() {
                   <tr>
                     <td className="py-1 text-slate-600">equivalentGravityG</td>
                     <td className="py-1 text-right">
-                      {simResult.equivalentGravityG.toFixed(4)} g
+                      {simResult.equivalentGravityG.toFixed(4)} g{" "}
+                      <span
+                        className={`ml-1 border px-1 py-0.2 text-[9px] ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                        title={simResult.metricProvenance.equivalentGravityG?.badge}
+                      >
+                        ION-PROXY
+                      </span>
                     </td>
                   </tr>
                   <tr>
                     <td className="py-1 text-slate-600">flameSpreadRateMmS</td>
                     <td className="py-1 text-right font-bold">
-                      {simResult.flameSpreadRateMmS.toFixed(2)} mm/s
+                      {simResult.flameSpreadRateMmS.toFixed(2)} mm/s{" "}
+                      <span
+                        className={`ml-1 border px-1 py-0.2 text-[9px] ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                      >
+                        ESTIMATED
+                      </span>
                     </td>
                   </tr>
                   <tr>
                     <td className="py-1 text-slate-600">adiabaticFlameTempK</td>
                     <td className="py-1 text-right font-bold">
-                      {simResult.adiabaticFlameTempK} K
+                      {simResult.adiabaticFlameTempK} K{" "}
+                      <span
+                        className={`ml-1 border px-1 py-0.2 text-[9px] ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                      >
+                        ESTIMATED
+                      </span>
                     </td>
                   </tr>
                   <tr>
@@ -826,9 +919,16 @@ export default function ApulaWireframePage() {
             </div>
 
             <div className="border border-slate-300 bg-white p-3">
-              <h3 className="font-mono text-xs font-bold uppercase border-b border-slate-300 pb-1.5 mb-2">
-                2B. FlameRenderGeometry (8 props)
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-300 pb-1.5 mb-2">
+                <h3 className="font-mono text-xs font-bold uppercase">
+                  2B. FlameRenderGeometry (8 props)
+                </h3>
+                <span
+                  className={`border px-1.5 py-0.5 font-mono text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES.ESTIMATED}`}
+                >
+                  {simResult.metricProvenance.flameGeometryAndTemp?.badge}
+                </span>
+              </div>
               <table className="w-full font-mono text-xs">
                 <tbody className="divide-y divide-slate-200">
                   <tr>
@@ -1382,6 +1482,7 @@ export default function ApulaWireframePage() {
               <tbody className="divide-y divide-slate-200">
                 {closestRuns.map((item, idx) => {
                   const cid = getRunCampaignId(item.run);
+                  const fp = item.run.fieldProvenance;
                   return (
                     <tr
                       key={`${item.run.experimentId}-${item.run.testNumber}-${idx}`}
@@ -1393,35 +1494,86 @@ export default function ApulaWireframePage() {
                           {cid}
                         </span>
                         <div className="font-bold">
-                          {item.run.experimentId}
+                          {item.run.experimentId} • {item.run.testNumber}
                         </div>
+                        <span
+                          className={`inline-block border px-1 py-0.5 text-[9px] font-bold mt-0.5 ${RUN_QUALITY_BADGE_CLASSES[item.run.runDataQuality]}`}
+                        >
+                          {item.run.runDataQuality}
+                        </span>
                       </td>
                       <td className="p-2">{item.run.rawFuelMaterial}</td>
                       <td className="p-2">
                         <div>
                           <strong>Mat:</strong> {item.run.baseMaterial}
                         </div>
-                        <div>
-                          <strong>Geo:</strong> {item.run.geometryType} |{" "}
-                          <strong>Thk:</strong>{" "}
-                          {item.run.thicknessMm !== null
-                            ? `${item.run.thicknessMm.toFixed(2)} mm`
-                            : "N/A"}
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <span>
+                            <strong>Geo:</strong> {item.run.geometryType}
+                          </span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.geometry]}`}
+                          >
+                            {fp.geometry}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <span>
+                            <strong>Thk:</strong>{" "}
+                            {item.run.thicknessMm !== null
+                              ? `${item.run.thicknessMm.toFixed(2)} mm`
+                              : "N/A"}
+                          </span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.thickness]}`}
+                          >
+                            {fp.thickness}
+                          </span>
                         </div>
                       </td>
                       <td className="p-2">
-                        <div>O2: {item.initialO2Pct ?? "—"}%</div>
-                        <div>P: {item.run.pressurePsi ?? "—"} psi</div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span>O2: {item.initialO2Pct ?? "—"}%</span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.o2]}`}
+                          >
+                            {fp.o2}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <span>P: {item.run.pressurePsi ?? "—"} psi</span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.pressure]}`}
+                          >
+                            {fp.pressure === "DEFAULTED"
+                              ? "DEFAULTED 14.7 PSI"
+                              : fp.pressure}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-2">
-                        <div>{item.airDisplay}</div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span>{item.airDisplay || "—"}</span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.airflow]}`}
+                          >
+                            {fp.airflow}
+                          </span>
+                        </div>
                         <div className="text-[10px] text-slate-500">
                           Steps: [{item.run.airflowSteps.join(" → ")}]
                         </div>
                       </td>
                       <td className="p-2">
-                        <div>
-                          Spread: {item.run.flameSpreadMmS ?? "—"} mm/s
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span>
+                            Spread: {item.run.flameSpreadMmS ?? "—"} mm/s
+                          </span>
+                          <span
+                            className={`border px-1 text-[9px] font-bold ${FIELD_PROVENANCE_BADGE_CLASSES[fp.spreadRate]}`}
+                          >
+                            {fp.spreadRate}
+                          </span>
                         </div>
                         <div>
                           Temp: {item.run.flameTemperatureK ?? "—"} K

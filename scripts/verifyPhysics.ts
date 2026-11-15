@@ -1,4 +1,4 @@
-// 4 AM physics interrogation harness: pokes all 8 combustion equations and shoves 654 NASA PSI flight rows through the solver to make sure nothing freaks out.
+// 4 AM physics interrogation harness: pokes all 8 combustion equations and shoves 654 NASA PSI flight rows through the solver to make sure nothing freaks out 🐧
 import assert from "node:assert/strict";
 import {
   DEFAULT_PARAMS,
@@ -137,6 +137,24 @@ console.log(
   `[PASS 7] FLEX / ACME CFI-G Cool-Flame Regime: regime=${coolFlameSim.regime}, T_ad=${coolFlameSim.adiabaticFlameTempK} K [550-750 K], coreColorHex=${coolFlameGeo.coreColorHex}`,
 );
 
+// 7b. pokes PMMA with Cylindrical Rod (D/4) geometry at 14.7 psi, 0g, 16.2% O2, 1.5 cm/s and proves it ignites instead of choking 🥸
+const pmmaRodSim = simulateCombustionPhysics({
+  ...DEFAULT_PARAMS,
+  material: "PMMA_SLAB_3MM",
+  geometryType: "Cylinder/Rod",
+  o2Pct: 16.2,
+  pressurePsi: 14.7,
+  gravityG: 0,
+  airflowCmS: 1.5,
+});
+assert.ok(
+  pmmaRodSim.oxygenMarginPct > 0 && pmmaRodSim.limitingO2Pct < 16.1,
+  `PMMA rod ignition failed: LOI=${pmmaRodSim.limitingO2Pct}%, regime=${pmmaRodSim.regime}`,
+);
+console.log(
+  `[PASS 7b] PMMA Cylindrical Rod Curvature (16.2% O2, 1.5 cm/s, 0g, 14.7 psi): ignited=true, LOI=${pmmaRodSim.limitingO2Pct}% (< 16.1%), effThk=${pmmaRodSim.effectiveThicknessMm} mm, regime=${pmmaRodSim.regime}`,
+);
+
 // shoves extreme slider corners (0% O2, 100% O2, 0 cm/s, 0g-1g, 4.3-14.7 psi) into the engine so no NaN ever leaks out.
 for (const o2 of [0, 100]) {
   for (const flow of [0, 60]) {
@@ -155,7 +173,7 @@ for (const o2 of [0, 100]) {
   }
 }
 
-// 8. snatches all 253 solid-fuel BASS, BASS-II, and SAFFIRE-3 rows out of the 654-run dataset and demands >=80% ignition concordance 👁️
+// 8. snatches all 253 solid-fuel BASS, BASS-II, and SAFFIRE-3 rows out of the 654-run dataset and demands >=80% ignition concordance 🥸
 const allRuns = loadMasterPsiDataset(MASTER_PSI_CSV);
 assert.equal(allRuns.length, 654, `Expected 654 total runs, got ${allRuns.length}`);
 const solidRuns = allRuns.filter((r) =>
@@ -163,6 +181,20 @@ const solidRuns = allRuns.filter((r) =>
 );
 
 let concordantCount = 0;
+let tp = 0;
+let tn = 0;
+let fp = 0;
+let fn = 0;
+
+const campaignStats: Record<
+  string,
+  { total: number; concordant: number; tp: number; tn: number; fp: number; fn: number }
+> = {
+  BASS: { total: 0, concordant: 0, tp: 0, tn: 0, fp: 0, fn: 0 },
+  "BASS-II": { total: 0, concordant: 0, tp: 0, tn: 0, fp: 0, fn: 0 },
+  "SAFFIRE-3": { total: 0, concordant: 0, tp: 0, tn: 0, fp: 0, fn: 0 },
+};
+
 for (const run of solidRuns) {
   const simMat = mapRunToSimulatorMaterial(run);
   const sim = simulateCombustionPhysics({
@@ -173,13 +205,32 @@ for (const run of solidRuns) {
     electricFieldVoltsCm: 0,
     co2DilutionPct: run.initialCO2Pct ?? 0,
     material: simMat,
+    geometryType: run.geometryType,
+    rawThicknessMm: run.thicknessMm,
   });
   const empiricalIgnited =
     run.ignitionStatus.toLowerCase() === "ignited" &&
     !/no\s*ign|would\s*not\s*stay\s*lit/i.test(run.airDisplay);
   const predictedIgnited = sim.oxygenMarginPct > 0;
-  if (empiricalIgnited === predictedIgnited) {
+  const cStat = campaignStats[run.experimentId];
+  cStat.total += 1;
+
+  if (empiricalIgnited && predictedIgnited) {
     concordantCount += 1;
+    tp += 1;
+    cStat.concordant += 1;
+    cStat.tp += 1;
+  } else if (!empiricalIgnited && !predictedIgnited) {
+    concordantCount += 1;
+    tn += 1;
+    cStat.concordant += 1;
+    cStat.tn += 1;
+  } else if (!empiricalIgnited && predictedIgnited) {
+    fp += 1;
+    cStat.fp += 1;
+  } else {
+    fn += 1;
+    cStat.fn += 1;
   }
 }
 
@@ -189,7 +240,31 @@ assert.ok(
   `Empirical backtest concordance ${concordancePct}% fell below 80% target`,
 );
 
+// pokes the provenance tags across all 654 rows so we know how many runs are FULLY_MEASURED vs PARTIALLY_INFERRED / DEFAULTED 💦
+const qualityCounts = {
+  FULLY_MEASURED: allRuns.filter((r) => r.runDataQuality === "FULLY_MEASURED").length,
+  PARTIALLY_INFERRED: allRuns.filter((r) => r.runDataQuality === "PARTIALLY_INFERRED").length,
+  MODEL_ESTIMATED: allRuns.filter((r) => r.runDataQuality === "MODEL_ESTIMATED").length,
+  defaultedPressure: allRuns.filter((r) => r.fieldProvenance.pressure === "DEFAULTED").length,
+  inferredGeometryOrThickness: allRuns.filter(
+    (r) => r.fieldProvenance.geometry === "INFERRED" || r.fieldProvenance.thickness === "INFERRED",
+  ).length,
+};
+
 console.log(
   `[PASS 8] NASA PSI Empirical Backtest (654 total rows | ${solidRuns.length} solid-fuel BASS / BASS-II / SAFFIRE-3 runs): ${concordantCount}/${solidRuns.length} concordant (${concordancePct}% >= 80.00% target)`,
+);
+for (const cid of ["BASS", "BASS-II", "SAFFIRE-3"] as const) {
+  const st = campaignStats[cid];
+  const pct = ((st.concordant / st.total) * 100).toFixed(2);
+  console.log(
+    `   • ${cid.padEnd(9)} Holdout: ${st.concordant}/${st.total} (${pct}%) | TP=${st.tp}, TN=${st.tn}, FP=${st.fp}, FN=${st.fn}`,
+  );
+}
+console.log(
+  `   • Overall Confusion Matrix (253 Solid-Fuel Runs): TP=${tp}, TN=${tn}, FP=${fp}, FN=${fn}`,
+);
+console.log(
+  `   • Provenance Breakdown (654 Total Runs): FULLY_MEASURED=${qualityCounts.FULLY_MEASURED}, PARTIALLY_INFERRED=${qualityCounts.PARTIALLY_INFERRED}, MODEL_ESTIMATED=${qualityCounts.MODEL_ESTIMATED} (Defaulted 14.7 psi Pressure=${qualityCounts.defaultedPressure}, Regex-Inferred Geo/Thk=${qualityCounts.inferredGeometryOrThickness})`,
 );
 console.log("\nALL 8 SCIENTIFIC & EMPIRICAL VERIFICATION CHECKS PASSED (100%).");

@@ -1,4 +1,4 @@
-// spreads out the 3A & 3B flammability phase charts with 12-38% O2 boundary focus, smooth thermal gradients, and clustered telemetry pins so the SVG doesn't freak out 👅
+// spreads out the 3A & 3B flammability phase charts with 12-38% O2 boundary focus, smooth thermal gradients, and clustered telemetry pins so the SVG doesn't freak out 💭
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -7,6 +7,7 @@ import {
   type FlammabilityEnvelopeData,
   type FlammabilityPhaseMatrix,
   type SimulationParams,
+  METRIC_PROVENANCE_LABELS,
 } from "@/lib/combustionPhysicsEngine";
 
 export interface FlammabilityPhaseChartsProps {
@@ -24,9 +25,11 @@ interface BinnedTelemetryCluster {
   campaigns: string[];
   sampleLabel: string;
   sampleMetric: string;
+  defaultedPressureCount: number;
+  inferredGeometryCount: number;
 }
 
-// shoves ISS (0g) and Earth (1g) callout labels apart via a flat offset lookup so they stop touching at (14.7 psi, 21% O2).
+// shoves ISS (0g) and Earth (1g) callout labels apart via a flat offset lookup so they stop touching at (14.7 psi, 21% O2) 🥸
 const HABITAT_CALLOUT_OFFSETS: Record<
   string,
   { dx: number; dy: number; anchor: "start" | "end" }
@@ -37,7 +40,7 @@ const HABITAT_CALLOUT_OFFSETS: Record<
   "Mars Habitat Reference": { dx: -14, dy: 16, anchor: "end" },
 };
 
-// grabs overlapping scatter pins and shoves them into binned clusters before 654 raw SVG circles spread all over each other.
+// grabs overlapping scatter pins and shoves them into binned clusters before 654 raw SVG circles spread all over each other 💦
 function buildBinnedClusters(
   nodes: readonly EmpiricalTelemetryNode[],
   mode: "pressure" | "airflow",
@@ -52,6 +55,8 @@ function buildBinnedClusters(
       campaigns: Set<string>;
       sampleLabel: string;
       sampleMetric: string;
+      defaultedPressureCount: number;
+      inferredGeometryCount: number;
     }
   >();
 
@@ -63,6 +68,12 @@ function buildBinnedClusters(
         : Math.round(rawX / 2) * 2;
     const binO2 = Math.round(node.o2Pct);
     const key = `${binX}:${binO2}`;
+    const isDefaultedPressure = node.fieldProvenance?.pressure === "DEFAULTED" ? 1 : 0;
+    const isInferredGeo =
+      node.fieldProvenance?.geometry === "INFERRED" ||
+      node.fieldProvenance?.thickness === "INFERRED"
+        ? 1
+        : 0;
 
     const existing = map.get(key);
     if (!existing) {
@@ -76,6 +87,8 @@ function buildBinnedClusters(
         campaigns: new Set([node.experimentId]),
         sampleLabel: node.label,
         sampleMetric: node.keyMetricText,
+        defaultedPressureCount: isDefaultedPressure,
+        inferredGeometryCount: isInferredGeo,
       });
     } else {
       existing.xSum += rawX;
@@ -86,6 +99,8 @@ function buildBinnedClusters(
         (existing.colorCounts.get(node.nodeColorHex) ?? 0) + 1,
       );
       existing.campaigns.add(node.experimentId);
+      existing.defaultedPressureCount += isDefaultedPressure;
+      existing.inferredGeometryCount += isInferredGeo;
     }
   }
 
@@ -108,6 +123,8 @@ function buildBinnedClusters(
       campaigns: Array.from(entry.campaigns),
       sampleLabel: entry.sampleLabel,
       sampleMetric: entry.sampleMetric,
+      defaultedPressureCount: entry.defaultedPressureCount,
+      inferredGeometryCount: entry.inferredGeometryCount,
     });
   }
   return result;
@@ -345,9 +362,19 @@ export default function FlammabilityPhaseCharts({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border border-slate-300 bg-white p-3">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-            <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
-              3A. Partial-Gravity Bounding Envelope (O2% vs Pressure psi)
-            </h3>
+            <div>
+              <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
+                3A. Partial-Gravity Bounding Envelope (O2% vs Pressure psi)
+              </h3>
+              <div className="flex flex-wrap gap-1 mt-1">
+                <span className="border border-indigo-500 bg-indigo-100 text-indigo-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                  {METRIC_PROVENANCE_LABELS.partialGravityBoundaries.badge}
+                </span>
+                <span className="border border-emerald-500 bg-emerald-100 text-emerald-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                  {METRIC_PROVENANCE_LABELS.empiricalFlightPins.badge}
+                </span>
+              </div>
+            </div>
             <span className="font-mono text-[11px] text-slate-500">
               X: 4–15 psi | Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
             </span>
@@ -678,13 +705,25 @@ export default function FlammabilityPhaseCharts({
 
             {hoveredCluster3A && (
               <div className="absolute bottom-4 left-14 border border-slate-600 bg-slate-900/95 px-2.5 py-1.5 font-mono text-[10px] text-slate-100 shadow-lg pointer-events-none">
-                <div className="font-bold text-sky-300">
-                  Cluster: ×{hoveredCluster3A.count} Runs @{" "}
-                  {hoveredCluster3A.xVal} psi, {hoveredCluster3A.o2Pct}% O2
+                <div className="flex flex-wrap items-center gap-1.5 font-bold text-sky-300">
+                  <span>
+                    Cluster: ×{hoveredCluster3A.count} Runs @{" "}
+                    {hoveredCluster3A.xVal} psi, {hoveredCluster3A.o2Pct}% O2
+                  </span>
+                  <span className="border border-emerald-400 bg-emerald-950 text-emerald-200 px-1 py-0.2 text-[9px]">
+                    {hoveredCluster3A.defaultedPressureCount > 0
+                      ? "[MEASURED + DEFAULTED 14.7 PSI]"
+                      : "[MEASURED — ISS FLIGHT TELEMETRY]"}
+                  </span>
                 </div>
                 <div className="text-slate-300">
                   Campaigns: {hoveredCluster3A.campaigns.join(", ")} • Sample:{" "}
                   {hoveredCluster3A.sampleLabel} ({hoveredCluster3A.sampleMetric})
+                </div>
+                <div className="text-[9px] text-amber-300">
+                  Provenance: {hoveredCluster3A.count - hoveredCluster3A.defaultedPressureCount} MEASURED P •{" "}
+                  {hoveredCluster3A.defaultedPressureCount} DEFAULTED P •{" "}
+                  {hoveredCluster3A.inferredGeometryCount} INFERRED Geo/Thk
                 </div>
               </div>
             )}
@@ -736,9 +775,19 @@ export default function FlammabilityPhaseCharts({
 
         <div className="border border-slate-300 bg-white p-3">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-            <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
-              3B. Microgravity Ventilation U-Curve (O2% vs Airflow cm/s)
-            </h3>
+            <div>
+              <h3 className="font-mono text-xs font-bold uppercase text-slate-900">
+                3B. Microgravity Ventilation U-Curve (O2% vs Airflow cm/s)
+              </h3>
+              <div className="flex flex-wrap gap-1 mt-1">
+                <span className="border border-indigo-500 bg-indigo-100 text-indigo-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                  {METRIC_PROVENANCE_LABELS.uCurveBoundaries.badge}
+                </span>
+                <span className="border border-emerald-500 bg-emerald-100 text-emerald-900 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                  {METRIC_PROVENANCE_LABELS.empiricalFlightPins.badge}
+                </span>
+              </div>
+            </div>
             <span className="font-mono text-[11px] text-slate-500">
               X: 0–50 cm/s | Y: {yMin}–{yMax}% O2 ({isFocus ? "Boundary Zoom" : "Full Scale"})
             </span>
@@ -1049,13 +1098,25 @@ export default function FlammabilityPhaseCharts({
 
             {hoveredCluster3B && (
               <div className="absolute bottom-4 left-14 border border-slate-600 bg-slate-900/95 px-2.5 py-1.5 font-mono text-[10px] text-slate-100 shadow-lg pointer-events-none">
-                <div className="font-bold text-amber-300">
-                  Cluster: ×{hoveredCluster3B.count} Runs @{" "}
-                  {hoveredCluster3B.xVal} cm/s, {hoveredCluster3B.o2Pct}% O2
+                <div className="flex flex-wrap items-center gap-1.5 font-bold text-amber-300">
+                  <span>
+                    Cluster: ×{hoveredCluster3B.count} Runs @{" "}
+                    {hoveredCluster3B.xVal} cm/s, {hoveredCluster3B.o2Pct}% O2
+                  </span>
+                  <span className="border border-emerald-400 bg-emerald-950 text-emerald-200 px-1 py-0.2 text-[9px]">
+                    {hoveredCluster3B.defaultedPressureCount > 0
+                      ? "[MEASURED + DEFAULTED 14.7 PSI]"
+                      : "[MEASURED — ISS FLIGHT TELEMETRY]"}
+                  </span>
                 </div>
                 <div className="text-slate-300">
                   Campaigns: {hoveredCluster3B.campaigns.join(", ")} • Sample:{" "}
                   {hoveredCluster3B.sampleLabel} ({hoveredCluster3B.sampleMetric})
+                </div>
+                <div className="text-[9px] text-sky-300">
+                  Provenance: {hoveredCluster3B.count - hoveredCluster3B.defaultedPressureCount} MEASURED P •{" "}
+                  {hoveredCluster3B.defaultedPressureCount} DEFAULTED P •{" "}
+                  {hoveredCluster3B.inferredGeometryCount} INFERRED Geo/Thk
                 </div>
               </div>
             )}

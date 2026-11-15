@@ -1,4 +1,4 @@
-// spreads out a 60fps Three.js microgravity wind-tunnel chamber with additive-blended sphere-to-teardrop flame meshes.
+// spreads out a 60fps Three.js microgravity wind-tunnel chamber with additive-blended sphere-to-teardrop flame meshes 🐧
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +25,7 @@ interface OrbitState {
   distance: number;
 }
 
-// pokes the active regime and grabs the HUD morphology badge without touching a 5-branch else-if chain.
+// pokes the active regime and grabs the HUD morphology badge without touching a 5-branch else-if chain 🥸
 const MORPHOLOGY_BADGE_RULES: readonly {
   match: (sim: CombustionSimulationResult, geo: FlameRenderGeometry) => boolean;
   modeLabel: string;

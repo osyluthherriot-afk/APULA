@@ -1,4 +1,4 @@
-// spreads out all 13 NASA PSI fire safety investigations + relevance ranker with zero else-if bloat.
+// spreads out all 13 NASA PSI fire safety investigations + relevance ranker with zero else-if bloat 🐧
 import {
   type NormalizedRun,
   type SimulationParams,
@@ -619,7 +619,7 @@ const GRAVITY_REGIME_TARGETS: readonly { token: string; g: number }[] = [
 const parseTargetGravity = (gravityRegime: string): number =>
   GRAVITY_REGIME_TARGETS.find((entry) => gravityRegime.includes(entry.token))?.g ?? 0;
 
-// pokes each study against active slider state and grabs bonus points without touching 60 lines of stacked if-statements.
+// pokes each study against active slider state and grabs bonus points without touching 60 lines of stacked if-statements 🥸
 const INVESTIGATION_BONUS_RULES: readonly {
   match: (inv: PsiInvestigation, p: SimulationParams) => boolean;
   deltaPenalty: number;
@@ -661,7 +661,7 @@ const INVESTIGATION_BONUS_RULES: readonly {
   },
 ];
 
-// shoves all 13 NASA investigations through a 0-100 habitat scorer and grabs live CSV row counts per campaign.
+// shoves all 13 NASA investigations through a 0-100 habitat scorer and grabs live CSV row counts per campaign 💦
 export function rankPsiInvestigations(
   params: SimulationParams,
   pillarFilter: string,

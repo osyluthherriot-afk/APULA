@@ -43,6 +43,26 @@ export type CombustionRegime =
   | "COOL_FLAME_CFI_G"
   | "CRITICAL_ACCELERATED_BURN";
 
+export type ProvenanceStatus = "MEASURED" | "INFERRED" | "DEFAULTED" | "ESTIMATED";
+
+export type RunDataQuality = "FULLY_MEASURED" | "PARTIALLY_INFERRED" | "MODEL_ESTIMATED";
+
+export type FieldProvenanceKey =
+  | "pressure"
+  | "o2"
+  | "airflow"
+  | "thickness"
+  | "geometry"
+  | "spreadRate";
+
+export type FieldProvenanceMap = Record<FieldProvenanceKey, ProvenanceStatus>;
+
+export interface MetricProvenanceTag {
+  status: ProvenanceStatus;
+  badge: string;
+  detail: string;
+}
+
 export interface MaterialGeometry {
   baseMaterial: BaseMaterial;
   geometryType: GeometryType;
@@ -86,7 +106,11 @@ export interface NormalizedRun extends MaterialGeometry, AirflowTrajectory {
   flameSpreadMmS: number | null;
   extinctionStatus: string;
   smokeParticleConc: number | null;
+  fieldProvenance: FieldProvenanceMap;
+  runDataQuality: RunDataQuality;
 }
+
+export type ParsedPsiRun = NormalizedRun;
 
 export interface SimulationParams {
   o2Pct: number;
@@ -96,10 +120,15 @@ export interface SimulationParams {
   electricFieldVoltsCm: number;
   material: SimulatorMaterial;
   co2DilutionPct: number;
+  geometryType?: GeometryType;
+  rawThicknessMm?: number | null;
 }
 
 export interface CombustionSimulationResult {
   material: SimulatorMaterial;
+  geometryType: GeometryType;
+  rawThicknessMm: number;
+  effectiveThicknessMm: number;
   o2Pct: number;
   pressurePsi: number;
   airflowCmS: number;
@@ -118,6 +147,7 @@ export interface CombustionSimulationResult {
   estimatedCO_ppm: number;
   estimatedCO2_pct: number;
   smokeSootIndex: number;
+  metricProvenance: Record<string, MetricProvenanceTag>;
 }
 
 export interface FlameRenderGeometry {
@@ -346,6 +376,8 @@ export interface EmpiricalTelemetryNode {
   pulseRadius: number;
   label: string;
   keyMetricText: string;
+  runDataQuality: RunDataQuality;
+  fieldProvenance: FieldProvenanceMap;
 }
 
 export interface FlammabilityPhaseMatrix {
@@ -376,7 +408,7 @@ interface MaterialPhysics {
 // shoves all 6 spacecraft fuel presets into one flat lookup table so we never have to touch a 40-line else-if ladder again.
 export const MATERIAL_PHYSICS: Record<SimulatorMaterial, MaterialPhysics> = {
   "PMMA_FILM_0.1MM": { thicknessMm: 0.1, baseLoiPct: 14.5, spreadFactor: 1.0, sootFactor: 0.55 },
-  PMMA_SLAB_3MM: { thicknessMm: 3.0, baseLoiPct: 16.2, spreadFactor: 0.48, sootFactor: 0.86 },
+  PMMA_SLAB_3MM: { thicknessMm: 3.0, baseLoiPct: 14.5, spreadFactor: 0.48, sootFactor: 0.86 },
   SIBAL_FABRIC: { thicknessMm: 0.35, baseLoiPct: 14.7, spreadFactor: 1.15, sootFactor: 0.42 },
   NOMEX: { thicknessMm: 0.45, baseLoiPct: 21.5, spreadFactor: 0.24, sootFactor: 0.2 },
   HEPTANE_DROPLET: { thicknessMm: 2.0, baseLoiPct: 12.8, spreadFactor: 0.85, sootFactor: 0.95 },
@@ -391,6 +423,75 @@ const SIMULATOR_TO_BASE_MATERIAL: Record<SimulatorMaterial, BaseMaterial> = {
   NOMEX: "Nomex",
   HEPTANE_DROPLET: "Heptane",
   PROPANE_CFI_G: "Propane/Methane",
+};
+
+const SIMULATOR_DEFAULT_GEOMETRY: Record<SimulatorMaterial, GeometryType> = {
+  "PMMA_FILM_0.1MM": "Film/Sheet",
+  PMMA_SLAB_3MM: "Slab",
+  SIBAL_FABRIC: "Fabric",
+  NOMEX: "Fabric",
+  HEPTANE_DROPLET: "Droplet",
+  PROPANE_CFI_G: "Gas Burner",
+};
+
+// shrinks rod and sphere diameters by their V/A curvature factor before the log2 heat-sink math reacts and falsely chokes BASS-II PMMA rods 🥸
+export const GEOMETRY_THERMAL_SCALE: Record<GeometryType | string, number> = {
+  "Film/Sheet": 1.0,
+  Slab: 1.0,
+  Fabric: 0.85,
+  "Cylinder/Rod": 0.25,
+  Candle: 0.25,
+  Sphere: 0.167,
+  Droplet: 0.167,
+  "Gas Burner": 0.167,
+  sheet: 1.0,
+  slab: 1.0,
+  film: 1.0,
+  fabric: 0.85,
+  ribbon: 0.85,
+  rod: 0.25,
+  cylinder: 0.25,
+  candle: 0.25,
+  sphere: 0.167,
+  droplet: 0.167,
+};
+
+export const METRIC_PROVENANCE_LABELS: Record<string, MetricProvenanceTag> = {
+  empiricalFlightPins: {
+    status: "MEASURED",
+    badge: "[MEASURED — ISS FLIGHT TELEMETRY]",
+    detail: "Direct NASA PSI sensor telemetry (with [DEFAULTED 14.7 PSI] flagged when raw logs omit cabin pressure).",
+  },
+  limitingO2Pct: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — SEMI-EMPIRICAL OLSON/T'IEN + DAMKÖHLER FIT]",
+    detail: "Calculated from Olson/T'ien dual-limit ventilation U-curve and Damköhler (P/14.7)^-0.25 scaling.",
+  },
+  flameSpreadRateMmS: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — SEMI-EMPIRICAL OLSON/T'IEN + DAMKÖHLER FIT]",
+    detail: "Calculated from oxygen margin, sqrt(v_eff), and Biot curvature-adjusted effectiveThicknessMm.",
+  },
+  uCurveBoundaries: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — SEMI-EMPIRICAL OLSON/T'IEN + DAMKÖHLER FIT]",
+    detail: "0g ventilated and 1g upward LOI phase boundaries.",
+  },
+  partialGravityBoundaries: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — FROUDE √g INTERPOLATION]",
+    detail: "Lunar (0.16g) and Mars (0.38g) LOI curves bounded between 0g and 1g via Froude sqrt(g) scaling.",
+  },
+  equivalentGravityG: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — LINEAR ION-DRIFT PROXY]",
+    detail: "ACME E-FIELD electrostatic ion wind mapped to equivalent buoyant gravity (1100 V/cm = 0.16g).",
+  },
+  flameGeometryAndTemp: {
+    status: "ESTIMATED",
+    badge: "[ESTIMATED — REDUCED-ORDER ANALYTICAL MODEL]",
+    detail: "3D plume dimensions, aspect ratio, spectral hex, and adiabatic flame temperature.",
+  },
 };
 
 export const DEFAULT_PARAMS: SimulationParams = {
@@ -592,7 +693,7 @@ const THICKNESS_EXTRACTORS: readonly { regex: RegExp; toMm: (m: RegExpMatchArray
   },
 ];
 
-// sneaks through chaotic raw NASA strings like "3/8\" black rod" and grabs the right PMMA preset without human help 🥷
+// sneaks through chaotic raw NASA strings like "3/8\" black rod" and grabs the right PMMA preset without human help 💭
 export function extractMaterialGeometry(rawMaterial: string): MaterialGeometry {
   const lower = rawMaterial.trim().toLowerCase();
   const baseMaterial =
@@ -629,7 +730,13 @@ const RUN_TO_SIMULATOR_MATERIAL_RULES: readonly {
   { match: (r) => r.baseMaterial === "SIBAL (Cotton-Fiberglass)", material: "SIBAL_FABRIC" },
   { match: (r) => r.baseMaterial === "Heptane", material: "HEPTANE_DROPLET" },
   { match: (r) => r.baseMaterial === "Propane/Methane", material: "PROPANE_CFI_G" },
-  { match: (r) => (r.thicknessMm ?? 0) >= 1.5, material: "PMMA_SLAB_3MM" },
+  {
+    match: (r) =>
+      r.geometryType !== "Cylinder/Rod" &&
+      r.geometryType !== "Sphere" &&
+      (r.thicknessMm ?? 0) >= 1.5,
+    material: "PMMA_SLAB_3MM",
+  },
 ];
 
 export function mapRunToSimulatorMaterial(run: NormalizedRun): SimulatorMaterial {
@@ -668,9 +775,28 @@ export function extractAirflowTrajectory(
 ): AirflowTrajectory {
   const text = rawAirDisplay.trim();
   const lower = text.toLowerCase();
-  const airflowSteps = (text.match(/(?:\d+\.?\d*|\.\d+)/g) ?? [])
-    .map((v) => Number.parseFloat(v))
-    .filter((v) => Number.isFinite(v));
+  const parenMatch = text.match(/\(([^)]+)\)/);
+  const outsideText = text.replace(/\([^)]*\)/g, " ");
+  const parseSteps = (source: string): number[] =>
+    (source.match(/(?:\d+\.?\d*|\.\d+)/g) ?? [])
+      .map((v) => Number.parseFloat(v))
+      .filter((v) => Number.isFinite(v));
+
+  const parenSteps = parenMatch ? parseSteps(parenMatch[1]) : [];
+  const outsideSteps = parseSteps(outsideText);
+  const rawSteps =
+    parenSteps.length > 0 &&
+    (outsideSteps.length === 0 || (parenSteps[0] <= 30 && outsideSteps[0] >= 40))
+      ? parenSteps
+      : outsideSteps.length > 0
+        ? outsideSteps
+        : parenSteps;
+  const droppedFanPot =
+    rawSteps.length >= 2 && rawSteps[0] >= 45 && rawSteps[1] <= 20 ? rawSteps.slice(1) : rawSteps;
+  const airflowSteps =
+    /^(?:incr|inc)\b/i.test(text) && droppedFanPot.length === 1 && droppedFanPot[0] > 12
+      ? [5, droppedFanPot[0]]
+      : droppedFanPot;
 
   const deltaO2 =
     chemistry.initialO2Pct != null && chemistry.finalO2Pct != null
@@ -698,16 +824,80 @@ export function extractAirflowTrajectory(
   };
 }
 
+// tags every CSV field as MEASURED, INFERRED, or DEFAULTED so the data human knows when NASA forgot to write down the d*** cabin pressure 💦
+function buildFieldProvenance(ctx: {
+  rawPressure: number | null;
+  rawO2: number | null;
+  rawAirDisplay: string;
+  airflowStepsCount: number;
+  rawFuelMaterial: string;
+  thicknessMm: number | null;
+  explicitThicknessMm: number | null;
+  explicitGeometry: string;
+  flameSpreadMmS: number | null;
+}): { fieldProvenance: FieldProvenanceMap; runDataQuality: RunDataQuality } {
+  const cleanAir = ctx.rawAirDisplay.trim();
+  const directNumericAir = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:\s*cm\/s)?$/i.test(cleanAir);
+  const lowerMat = ctx.rawFuelMaterial.trim().toLowerCase();
+  const hasRegexGeometry = GEOMETRY_TYPE_MATCHERS.some((rule) => rule.regex.test(lowerMat));
+
+  const fieldProvenance: FieldProvenanceMap = {
+    pressure:
+      ctx.rawPressure !== null && Number.isFinite(ctx.rawPressure) && ctx.rawPressure > 0
+        ? "MEASURED"
+        : "DEFAULTED",
+    o2: ctx.rawO2 !== null && Number.isFinite(ctx.rawO2) && ctx.rawO2 > 0 ? "MEASURED" : "DEFAULTED",
+    airflow:
+      ctx.airflowStepsCount === 0
+        ? "DEFAULTED"
+        : directNumericAir
+          ? "MEASURED"
+          : "INFERRED",
+    thickness:
+      ctx.explicitThicknessMm !== null
+        ? "MEASURED"
+        : ctx.thicknessMm !== null
+          ? "INFERRED"
+          : "DEFAULTED",
+    geometry: ctx.explicitGeometry.trim()
+      ? "MEASURED"
+      : hasRegexGeometry
+        ? "INFERRED"
+        : "DEFAULTED",
+    spreadRate: ctx.flameSpreadMmS !== null ? "MEASURED" : "ESTIMATED",
+  };
+
+  const runDataQuality: RunDataQuality =
+    fieldProvenance.pressure === "MEASURED" &&
+    fieldProvenance.o2 === "MEASURED" &&
+    (fieldProvenance.airflow === "MEASURED" || fieldProvenance.spreadRate === "MEASURED")
+      ? "FULLY_MEASURED"
+      : fieldProvenance.o2 === "DEFAULTED" ||
+          (fieldProvenance.pressure === "DEFAULTED" &&
+            fieldProvenance.airflow === "DEFAULTED" &&
+            fieldProvenance.spreadRate === "ESTIMATED")
+        ? "MODEL_ESTIMATED"
+        : "PARTIALLY_INFERRED";
+
+  return { fieldProvenance, runDataQuality };
+}
+
 function buildHumanNormalizedRun(record: Record<string, string>, rowIndex: number): NormalizedRun {
   const rawExpId = getValue(record, ["experiment_id"]) || `HUMAN-ROW-${rowIndex + 2}`;
   const explicitTestNum = getValue(record, ["test_number", "test #", "run_id"]);
   const { experimentId, testNumber } = splitCampaignAndTestId(rawExpId, explicitTestNum);
   const rawFuelMaterial = getValue(record, ["fuel_material_type"]);
   const airDisplay = getValue(record, ["airflow"]);
-  const o2Pct = normalizeO2Concentration(parseNumber(getValue(record, ["o2_concentration"])));
+  const rawO2 = parseNumber(getValue(record, ["o2_concentration"]));
+  const o2Pct = normalizeO2Concentration(rawO2);
   const coPpm = parseNumber(getValue(record, ["co"]));
   const co2Pct = parseNumber(getValue(record, ["co2"]));
+  const rawPressure = parseNumber(getValue(record, ["pressure", "pressure_psi", "pressure_kpa"]));
+  const explicitThicknessMm = parseNumber(getValue(record, ["thickness_mm", "thickness"]));
+  const explicitGeometry = getValue(record, ["geometry_type", "geometry"]);
+  const flameSpreadMmS = parseNumber(getValue(record, ["flame_spread"]));
   const material = extractMaterialGeometry(rawFuelMaterial);
+  const resolvedThicknessMm = explicitThicknessMm ?? material.thicknessMm;
   const airflow = extractAirflowTrajectory(airDisplay, {
     initialO2Pct: o2Pct,
     finalO2Pct: o2Pct,
@@ -715,6 +905,17 @@ function buildHumanNormalizedRun(record: Record<string, string>, rowIndex: numbe
     finalCO2Pct: co2Pct,
     initialCOPpm: 0,
     finalCOPpm: coPpm,
+  });
+  const provenance = buildFieldProvenance({
+    rawPressure,
+    rawO2,
+    rawAirDisplay: airDisplay,
+    airflowStepsCount: airflow.airflowSteps.length,
+    rawFuelMaterial,
+    thicknessMm: resolvedThicknessMm,
+    explicitThicknessMm,
+    explicitGeometry,
+    flameSpreadMmS,
   });
 
   return {
@@ -737,20 +938,19 @@ function buildHumanNormalizedRun(record: Record<string, string>, rowIndex: numbe
     finalCO2Pct: co2Pct,
     initialCOPpm: coPpm !== null ? 0 : null,
     finalCOPpm: coPpm,
-    pressurePsi: normalizePressurePsi(
-      parseNumber(getValue(record, ["pressure", "pressure_psi", "pressure_kpa"])),
-      14.7,
-    ),
+    pressurePsi: normalizePressurePsi(rawPressure, 14.7),
     temperatureK: parseNumber(getValue(record, ["temperature"])),
     gravityG: parseGravityG(getValue(record, ["gravity_level"])),
     ignitionStatus: getValue(record, ["ignition_status"]),
     burnDurationS: parseNumber(getValue(record, ["burn_duration"])),
     flameTemperatureK: parseNumber(getValue(record, ["flame_temperature"])),
-    flameSpreadMmS: parseNumber(getValue(record, ["flame_spread"])),
+    flameSpreadMmS,
     extinctionStatus: getValue(record, ["extinction_status"]),
     smokeParticleConc: parseNumber(getValue(record, ["smoke_particle_conc"])),
     ...material,
+    thicknessMm: resolvedThicknessMm,
     ...airflow,
+    ...provenance,
   };
 }
 
@@ -783,9 +983,10 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
 
     if (!isRawPsi) return [buildHumanNormalizedRun(record, rowIndex)];
 
-    const initialO2Pct = normalizeO2Concentration(
-      parseNumber(getValue(record, ["Calibrated initial O2 % by vol", "Initial O2 % by vol"])),
+    const rawO2 = parseNumber(
+      getValue(record, ["Calibrated initial O2 % by vol", "Initial O2 % by vol"]),
     );
+    const initialO2Pct = normalizeO2Concentration(rawO2);
     const finalO2Pct = normalizeO2Concentration(
       parseNumber(getValue(record, ["Calibrated final O2 % by vol", "Final O2 % by vol"])),
     );
@@ -793,6 +994,7 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
     const finalCO2Pct = parseNumber(getValue(record, ["Final CO2 % by vol"]));
     const initialCOPpm = parseNumber(getValue(record, ["Initial CO (ppm)", "Initial CO ppm"]));
     const finalCOPpm = parseNumber(getValue(record, ["Final CO (ppm)", "Final CO ppm"]));
+    const rawPressure = parseNumber(getValue(record, ["Pressure (psi)", "Pressure"]));
     const rawFuelMaterial = getValue(record, ["Fuel Sample Material"]);
     const airDisplay = getValue(record, ["Air display"]);
     const material = extractMaterialGeometry(rawFuelMaterial);
@@ -803,6 +1005,17 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
       finalCO2Pct,
       initialCOPpm,
       finalCOPpm,
+    });
+    const provenance = buildFieldProvenance({
+      rawPressure,
+      rawO2,
+      rawAirDisplay: airDisplay,
+      airflowStepsCount: airflow.airflowSteps.length,
+      rawFuelMaterial,
+      thicknessMm: material.thicknessMm,
+      explicitThicknessMm: null,
+      explicitGeometry: "",
+      flameSpreadMmS: null,
     });
     const rawExpId = getValue(record, ["experiment_id", "Experiment ID"]) || "BASS-II";
     const explicitTestNum = getValue(record, ["Test #"]) || `PSI-ROW-${rowIndex + 2}`;
@@ -829,10 +1042,7 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
         finalCO2Pct,
         initialCOPpm,
         finalCOPpm,
-        pressurePsi: normalizePressurePsi(
-          parseNumber(getValue(record, ["Pressure (psi)", "Pressure"])),
-          14.7,
-        ),
+        pressurePsi: normalizePressurePsi(rawPressure, 14.7),
         temperatureK: null,
         gravityG: 0,
         ignitionStatus: "",
@@ -843,6 +1053,7 @@ export function parseAndNormalizePsiCsv(csvText: string): NormalizedRun[] {
         smokeParticleConc: null,
         ...material,
         ...airflow,
+        ...provenance,
       },
     ];
   });
@@ -918,6 +1129,14 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
   const co2DilutionPct = clamp(finiteOr(params.co2DilutionPct, 0), 0, 20);
   const material = params.material in MATERIAL_PHYSICS ? params.material : DEFAULT_PARAMS.material;
   const materialPhysics = MATERIAL_PHYSICS[material];
+  const geometryType = params.geometryType ?? SIMULATOR_DEFAULT_GEOMETRY[material];
+  const rawThicknessMm = clamp(
+    finiteOr(params.rawThicknessMm, materialPhysics.thicknessMm),
+    0.05,
+    30,
+  );
+  const geometryScale = GEOMETRY_THERMAL_SCALE[geometryType] ?? 1.0;
+  const effectiveThicknessMm = clamp(rawThicknessMm * geometryScale, 0.05, 10);
 
   // grabs Froude buoyancy (22*sqrt(g)) and ACME E-FIELD ion wind (0.008*E), then shoves them into quadrature with fan flow so 0g never divides by zero.
   const buoyantVelocityCmS = 22 * Math.sqrt(Math.max(0, gravityG));
@@ -926,18 +1145,23 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
   const effectiveVelocityCmS = Math.sqrt(airflowCmS ** 2 + naturalDraftCmS ** 2);
   const equivalentGravityG = (naturalDraftCmS / 22) ** 2;
 
-  // 0g fire chokes on its own CO2 under 2 cm/s, so we slap an Olson/T'ien low-flow penalty right onto the limit while >12 cm/s strips heat toward blowoff 💦
+  // 0g fire chokes on its own CO2 under 2 cm/s, while curved rods/spheres lose less heat so we scale their low-flow choke by 0.55x.
+  const curvatureFlowFactor = geometryScale <= 0.25 ? 0.55 : 1.0;
   const lowFlowPenalty =
-    effectiveVelocityCmS < 2 ? 4.8 * ((2 - effectiveVelocityCmS) / 2) ** 1.25 : 0;
+    effectiveVelocityCmS < 2
+      ? 4.8 * ((2 - effectiveVelocityCmS) / 2) ** 1.25 * curvatureFlowFactor
+      : 0;
   const highFlowPenalty =
     effectiveVelocityCmS > 12 ? 0.04 * (effectiveVelocityCmS - 12) ** 1.4 : 0;
 
-  // pokes the Damkohler sub-atmospheric power law (P / 14.7)^-0.25 and thermal thickness log2 scaling so thin films spread way easier than thick slabs.
+  // pokes the Damkohler sub-atmospheric power law (P / 14.7)^-0.25 and Biot curvature-scaled effectiveThicknessMm so cylindrical rods never get choked as flat armor slabs.
   const pressureScale = (Math.max(0.1, pressurePsi) / 14.7) ** -0.25;
-  const thicknessCorrection = 0.22 * Math.log2(Math.max(0.05, materialPhysics.thicknessMm) / 0.35);
+  const thicknessCorrection = 0.22 * Math.log2(effectiveThicknessMm / 0.35);
+  const baseLoi =
+    material.startsWith("PMMA") && geometryScale <= 0.25 ? 13.1 : materialPhysics.baseLoiPct;
 
   const limitingO2Pct = clamp(
-    (materialPhysics.baseLoiPct +
+    (baseLoi +
       thicknessCorrection +
       lowFlowPenalty +
       highFlowPenalty +
@@ -964,13 +1188,13 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
           oxygenMarginPct *
           Math.sqrt(Math.max(0.35, effectiveVelocityCmS)) *
           materialPhysics.spreadFactor) /
-          Math.max(0.05, materialPhysics.thicknessMm) ** 0.65,
+          effectiveThicknessMm ** 0.65,
         0,
         75,
       )
     : 0;
 
-  // chokes FLEX / ACME CFI-G cool flames into a spooky 550-750 K peroxy crawl instead of letting them react like a 2000 K hot soot torch 👁️
+  // chokes FLEX / ACME CFI-G cool flames into a spooky 550-750 K peroxy crawl instead of letting them react like a 2000 K hot soot torch 🐧
   const coolFlame = regime === "COOL_FLAME_CFI_G";
   const adiabaticFlameTempK = !ignited
     ? 295
@@ -990,7 +1214,7 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
     0.04 +
       0.65 * clamp((2.5 - effectiveVelocityCmS) / 2.5, 0, 1) +
       0.42 * clamp((effectiveVelocityCmS - 20) / 40, 0, 1) +
-      0.28 * clamp(materialPhysics.thicknessMm / 5, 0, 0.65) +
+      0.28 * clamp(effectiveThicknessMm / 5, 0, 0.65) +
       0.35 * clamp((limitingO2Pct + 4 - o2Pct) / 7, 0, 1),
     0,
     1,
@@ -1039,6 +1263,9 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
 
   return {
     material,
+    geometryType,
+    rawThicknessMm: Number(rawThicknessMm.toFixed(3)),
+    effectiveThicknessMm: Number(effectiveThicknessMm.toFixed(3)),
     o2Pct,
     pressurePsi,
     airflowCmS,
@@ -1057,6 +1284,7 @@ export function simulateCombustionPhysics(params: SimulationParams): CombustionS
     estimatedCO_ppm,
     estimatedCO2_pct,
     smokeSootIndex,
+    metricProvenance: METRIC_PROVENANCE_LABELS,
   };
 }
 
@@ -1717,7 +1945,7 @@ export function generateFlammabilityPhaseMatrix(
     (0.18 *
       Math.sqrt(Math.max(0.35, refFlow.effectiveVelocityCmS)) *
       matPhysics.spreadFactor) /
-      Math.max(0.05, matPhysics.thicknessMm) ** 0.65,
+      Math.max(0.05, refFlow.effectiveThicknessMm) ** 0.65,
   );
 
   const computeIsoContourPoints = (targetMmS: number): IsoSpreadPoint[] =>
@@ -1844,6 +2072,8 @@ export function generateFlammabilityPhaseMatrix(
         metricParts.length > 0
           ? metricParts.join(" | ")
           : run.extinctionStatus || run.extinctionMechanism,
+      runDataQuality: run.runDataQuality,
+      fieldProvenance: run.fieldProvenance,
     };
   });
 
